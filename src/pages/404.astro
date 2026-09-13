@@ -1,0 +1,64 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Page introuvable · Joakim Janssens" description="Cette page n’existe pas ou a été déplacée." noindex>
+  <main class="mx-auto flex min-h-dvh w-full max-w-[700px] flex-col px-8 pt-14 pb-9">
+    <header data-group>
+      <a
+        href="/"
+        class="inline-block overflow-hidden font-display text-[22px] leading-[33px] text-ink transition-colors duration-150 hover:text-body"
+      >
+        <span class="inline-block" data-word style="--i:0">Joakim</span>{" "}<span
+          class="inline-block"
+          data-word
+          style="--i:1">Janssens</span
+        >
+      </a>
+    </header>
+
+    <section class="flex flex-1 flex-col justify-center gap-[22px] py-16" data-group aria-labelledby="titre">
+      <h1
+        id="titre"
+        class="font-display text-[clamp(44px,11vw,72px)] leading-[1.05] font-normal text-balance text-ink"
+        data-reveal
+        style="--d:180ms"
+      >
+        Cette page n’existe pas.
+      </h1>
+      <p class="max-w-[46ch] text-base leading-6 text-body" data-reveal style="--d:260ms">
+        Le lien est peut-être ancien, ou l’adresse contient une faute de frappe. Tout le reste se trouve sur la page
+        d’accueil.
+      </p>
+      <div class="flex flex-col gap-2.5" data-reveal style="--d:340ms">
+        <div>
+          <a
+            href="/"
+            class="inline-flex h-8 items-center justify-center rounded-[10px] bg-ink px-3 text-sm leading-5 font-medium text-cream transition-[background-color,scale] duration-150 hover:bg-[#2b2b2b] active:scale-[0.97]"
+          >
+            Retour à l’accueil
+          </a>
+        </div>
+        <p class="text-[13px] leading-5 text-muted" lang="en">
+          This page doesn’t exist.
+          <a
+            href="/?lang=en"
+            class="link-draw text-body"
+            >Go to the English homepage</a
+          >
+        </p>
+      </div>
+    </section>
+
+    <footer class="flex flex-col gap-5" data-group>
+      <div class="h-px origin-left bg-hairline" data-line></div>
+      <p
+        class="font-display text-[min(92px,calc((100vw-64px)/6.95))] leading-[min(101px,calc((100vw-64px)/6.95*1.1))] whitespace-nowrap text-surface select-none"
+        aria-hidden="true"
+        data-wordmark
+      >
+        joakimjanssens.com
+      </p>
+    </footer>
+  </main>
+</Base>

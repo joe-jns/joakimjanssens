@@ -1,0 +1,14 @@
+# En ce moment
+#
+# Une ligne par élément, sous la forme : texte | étiquette
+# La première ligne est mise en avant avec le point rose.
+# Les lignes qui commencent par # sont ignorées.
+#
+# La date « mis à jour le … » se règle toute seule sur la dernière
+# modification de ce fichier.
+#
+# Version anglaise : en-ce-moment.en.txt (à tenir à jour en même temps).
+
+Je lance l’offre IA locale et je cherche mes premiers clients | focus
+Cabinets d’avocats, notaires, médecins, experts-comptables | cible
+Trois places ouvertes pour un premier déploiement | offre

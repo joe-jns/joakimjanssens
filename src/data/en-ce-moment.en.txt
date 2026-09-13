@@ -1,0 +1,11 @@
+# Right now (English version of en-ce-moment.txt)
+#
+# One item per line: text | tag
+# The first line is highlighted with the pink dot.
+# Lines starting with # are ignored.
+#
+# The "updated …" date follows the last change to this file.
+
+Launching my local AI offer and looking for my first clients | focus
+Law firms, accountants, medical practices | sectors
+Three places left for a first pilot | offer

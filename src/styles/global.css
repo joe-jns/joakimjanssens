@@ -9,7 +9,7 @@
   --color-body: #3d3d3d;
   --color-muted: #787874;
   --color-hairline: #e9e9e7;
-  --color-accent: #b4551f;
+  --color-accent: #e8a4b8;
   --color-cream: #fdfbf7;
   --color-dot-1: #d9d9d6;
 
@@ -20,6 +20,167 @@
 /* Les filets de la maquette ne poussent pas la boîte : on les dessine à l'intérieur. */
 @utility ring-hairline {
   box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+/*
+ * Mouvement. L'état de départ n'existe que si le script de tête a posé .motion sur <html> :
+ * sans JavaScript, la page est rendue finie. Chaque [data-group] reçoit .is-in en entrant
+ * dans la fenêtre.
+ */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.motion [data-reveal],
+.motion [data-row] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 700ms var(--ease-out-expo),
+    transform 900ms var(--ease-out-expo);
+  transition-delay: calc(var(--d, 0ms) + var(--i, 0) * 80ms);
+}
+
+/* Le nom monte depuis sous sa ligne de base et sort du flou. */
+.motion [data-word] {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(100%);
+  transition:
+    opacity 600ms var(--ease-out-expo),
+    filter 900ms var(--ease-out-expo),
+    transform 1000ms var(--ease-out-expo);
+  transition-delay: calc(60ms + var(--i, 0) * 110ms);
+}
+
+/* Les filets se tracent de gauche à droite pendant que la ligne arrive. */
+.motion [data-rule] {
+  position: relative;
+  border-top-color: transparent;
+}
+
+.motion [data-rule]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  height: 1px;
+  background-color: var(--color-hairline);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1100ms var(--ease-out-expo);
+  transition-delay: inherit;
+}
+
+.motion [data-line] {
+  transform: scaleX(0);
+  transition: transform 1200ms var(--ease-out-expo);
+}
+
+/* La signature du bas se dévoile en balayage. */
+.motion [data-wordmark] {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1600ms var(--ease-out-expo) 250ms;
+}
+
+.motion .is-in [data-reveal],
+.motion .is-in [data-row],
+.motion .is-in [data-word] {
+  opacity: 1;
+  filter: none;
+  transform: none;
+}
+
+.motion .is-in [data-rule]::before,
+.motion .is-in [data-line] {
+  transform: none;
+}
+
+.motion .is-in [data-wordmark] {
+  clip-path: inset(0 0 0 0);
+}
+
+/* Mouvement réduit : des fondus seulement, sans déplacement ni cascade. */
+@media (prefers-reduced-motion: reduce) {
+  .motion [data-reveal],
+  .motion [data-row],
+  .motion [data-word] {
+    filter: none;
+    transform: none;
+    transition: opacity 300ms ease-out;
+  }
+
+  .motion [data-rule]::before,
+  .motion [data-line] {
+    transform: none;
+    transition: none;
+  }
+
+  .motion [data-wordmark] {
+    clip-path: none;
+    opacity: 0;
+    transition: opacity 400ms ease-out;
+  }
+
+  .motion .is-in [data-wordmark] {
+    opacity: 1;
+  }
+}
+
+/*
+ * Langues. Les deux versions sont dans la page ; <html lang> choisit laquelle s'affiche.
+ */
+:root:not([lang="en"]) [data-lang="en"],
+:root[lang="en"] [data-lang="fr"],
+:root:not([lang="en"]) [data-only="en"],
+:root[lang="en"] [data-only="fr"] {
+  display: none;
+}
+
+/* Sélecteur FR · EN : la pastille glisse sous la langue active. */
+:root[lang="en"] [data-lang-pill] {
+  translate: 100% 0;
+}
+
+:root:not([lang="en"]) [data-set-lang="fr"],
+:root[lang="en"] [data-set-lang="en"] {
+  color: var(--color-ink);
+}
+
+/*
+ * Changement de langue : tous les textes traduits [data-t] se floutent ensemble, la langue change
+ * pendant qu'ils sont flous, puis ils se défloutent dans l'autre langue. Le script pilote
+ * data-lang-phase sur <html> : "out" puis "in". Les sélecteurs sont renforcés pour passer devant
+ * les règles d'apparition au défilement.
+ */
+:root[data-lang-phase][data-lang-phase] [data-t] {
+  transition:
+    filter 520ms var(--ease-out-expo),
+    opacity 520ms var(--ease-out-expo);
+  transition-delay: 0ms;
+}
+
+:root[data-lang-phase="out"][data-lang-phase] [data-t] {
+  filter: blur(8px);
+  opacity: 0.25;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-lang-phase="out"][data-lang-phase] [data-t] {
+    filter: none;
+    opacity: 0;
+    transition-duration: 120ms;
+  }
+
+  :root[data-lang-phase][data-lang-phase] [data-t] {
+    transition-duration: 180ms;
+  }
+
+  [data-lang-pill] {
+    transition-duration: 0ms !important;
+  }
 }
 
 @layer base {
@@ -35,13 +196,224 @@
     color: var(--color-body);
   }
 
+  /* Pas de mot seul en bout de paragraphe ; titres équilibrés sur leurs lignes. */
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Barre de défilement fine aux couleurs du site. Firefox lit la syntaxe standard ;
+     Chrome, Edge et Safari lisent les pseudo-éléments, qui permettent le pouce arrondi. */
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-dot-1) var(--color-bg);
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--color-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    min-height: 48px;
+    border: 3px solid var(--color-bg);
+    border-radius: 999px;
+    background-color: var(--color-dot-1);
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-muted);
+  }
+
+  ::-webkit-scrollbar-thumb:active {
+    background-color: var(--color-accent);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background-color: var(--color-bg);
+  }
+
   ::selection {
-    background-color: var(--color-ink);
-    color: var(--color-cream);
+    background-color: var(--color-accent);
+    color: var(--color-ink);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    /* Le rose est trop clair pour un contour de focus lisible (3:1 exigé) : on garde l'encre. */
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
+  }
+}
+
+/*
+ * Lien qui se souligne en rose de gauche à droite au survol, par-dessus un filet gris.
+ */
+.link-draw {
+  background-image:
+    linear-gradient(var(--color-accent), var(--color-accent)),
+    linear-gradient(var(--color-hairline), var(--color-hairline));
+  background-position:
+    0 100%,
+    0 100%;
+  background-repeat: no-repeat;
+  background-size:
+    0% 1px,
+    100% 1px;
+  padding-bottom: 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 450ms var(--ease-out-expo);
+}
+
+.link-draw:hover,
+.link-draw:focus-visible {
+  background-size:
+    100% 1px,
+    100% 1px;
+}
+
+/*
+ * Signature du bas : une lueur rose suit le curseur et révèle le mot presque invisible.
+ * --gx / --gy sont posées par le script, relatives au mot.
+ */
+[data-glow] {
+  background-image: radial-gradient(
+    circle 170px at var(--gx, -999px) var(--gy, -999px),
+    var(--color-accent) 0%,
+    color-mix(in oklab, var(--color-accent) 45%, transparent) 38%,
+    transparent 72%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0;
+  transition: opacity 500ms var(--ease-out-expo);
+}
+
+[data-glow-zone]:hover [data-glow] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  [data-glow] {
+    display: none;
+  }
+}
+
+/*
+ * Encart des raccourcis clavier.
+ */
+[data-shortcuts] {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(8px) scale(0.98);
+  transition:
+    opacity 200ms ease-out,
+    filter 260ms var(--ease-out-expo),
+    transform 320ms var(--ease-out-expo),
+    visibility 0s linear 320ms;
+  visibility: hidden;
+}
+
+[data-shortcuts][data-open] {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-shortcuts] {
+    filter: none;
+    transform: none;
+  }
+}
+
+/*
+ * CV imprimable : Ctrl+P ou « Enregistrer en PDF » donne un CV A4 propre, dans la langue affichée.
+ */
+@page {
+  size: A4;
+  margin: 14mm 16mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Tout est posé, sans animation. */
+  .motion [data-reveal],
+  .motion [data-row],
+  .motion [data-word],
+  .motion [data-line],
+  .motion [data-wordmark],
+  [data-t] {
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    clip-path: none !important;
+    transition: none !important;
+  }
+
+  .motion [data-rule] {
+    border-top-color: var(--color-hairline) !important;
+  }
+
+  .motion [data-rule]::before {
+    display: none;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    gap: 22px !important;
+    zoom: 0.86;
+  }
+
+  main section,
+  main footer {
+    gap: 12px !important;
+  }
+
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  [data-print-only] {
+    display: flex !important;
+  }
+
+  ol > li,
+  ul > li {
+    break-inside: avoid;
+  }
+
+  h2 {
+    break-after: avoid;
   }
 }

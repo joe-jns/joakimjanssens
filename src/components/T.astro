@@ -1,0 +1,11 @@
+---
+// Texte bilingue : les deux versions sont dans la page, le CSS n'affiche que celle de <html lang>.
+interface Props {
+  fr: string;
+  en: string;
+}
+
+const { fr, en } = Astro.props;
+---
+
+<span data-lang="fr">{fr}</span><span data-lang="en" lang="en">{en}</span>

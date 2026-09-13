@@ -1,0 +1,664 @@
+---
+import Base from "../layouts/Base.astro";
+import Icon, { type IconName } from "./Icon.astro";
+import T from "./T.astro";
+import { content, email, formatMonth, languages, links, type Lang } from "../i18n/content";
+import { formatShortDate, isoDate, nowUpdatedAt, readNow } from "../lib/en-ce-moment";
+
+const { fr, en } = content;
+
+const social: { label: string; icon: IconName; href: string }[] = [
+  { label: "GitHub", icon: "github", href: links.github },
+  { label: "X", icon: "twitter", href: links.x },
+  { label: "LinkedIn", icon: "linkedin", href: links.linkedin },
+  { label: fr.socialEmail, icon: "mail", href: links.email },
+];
+
+// Contenu éditable dans src/data/en-ce-moment.txt (FR) et en-ce-moment.en.txt (EN)
+const nowFr = readNow("fr");
+const nowEn = readNow("en");
+const nowRows = Array.from({ length: Math.max(nowFr.length, nowEn.length) }, (_, i) => ({
+  fr: nowFr[i],
+  en: nowEn[i],
+}));
+const updatedFr = nowUpdatedAt("fr");
+const updatedEn = nowUpdatedAt("en");
+
+const dates = (job: (typeof fr.jobs.items)[number], lang: Lang) =>
+  job.to
+    ? `${formatMonth(job.from, lang)} ${content[lang].jobs.between} ${formatMonth(job.to, lang)}`
+    : `${content[lang].jobs.since} ${formatMonth(job.from, lang)}`;
+
+// Fiche « Personne » lue par Google (données structurées schema.org).
+const site = Astro.site!.href;
+const current = fr.jobs.items.filter((job) => !job.to);
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  url: site,
+  inLanguage: ["fr-BE", "en-GB"],
+  mainEntity: {
+    "@type": "Person",
+    "@id": `${site}#joakim`,
+    name: "Joakim Janssens",
+    givenName: "Joakim",
+    familyName: "Janssens",
+    url: site,
+    email: `mailto:${email}`,
+    description: fr.meta.description,
+    jobTitle: current.map((job) => job.title),
+    worksFor: current.map((job) => ({ "@type": "Organization", name: job.org })),
+    address: { "@type": "PostalAddress", addressLocality: "Charleroi", addressCountry: "BE" },
+    knowsAbout: fr.knowsAbout,
+    knowsLanguage: ["fr", "en"],
+    sameAs: [links.linkedin, links.github, links.x],
+  },
+};
+
+---
+
+<Base title={fr.meta.title} description={fr.meta.description}>
+  <script type="application/ld+json" slot="head" set:html={JSON.stringify(jsonLd)} />
+
+  <main class="mx-auto flex w-full max-w-[700px] flex-col gap-[44px] px-8 pt-14 pb-9">
+    <!-- Header -->
+    <section class="flex flex-col gap-[22px]" data-group>
+      <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 sm:flex-nowrap">
+        <div class="flex min-w-0 flex-col gap-0.5">
+          <h1 class="self-start overflow-hidden font-display text-[22px] leading-[33px] font-normal text-ink print:text-[34px] print:leading-[42px]">
+            <span class="inline-block" data-word style="--i:0">Joakim</span>{" "}<span
+              class="inline-block"
+              data-word
+              style="--i:1">Janssens</span
+            >
+          </h1>
+          <p class="text-base leading-6 text-muted" data-reveal data-t style="--d:260ms">
+            <T fr={fr.role} en={en.role} /><span class="whitespace-nowrap" data-clock-wrap data-print-hide hidden
+              >{" · "}<time
+                data-clock
+                data-title-fr={fr.ui.clockTitle}
+                data-title-en={en.ui.clockTitle}
+                title={fr.ui.clockTitle}>--:--</time
+              ></span
+            >
+          </p>
+          <p class="hidden flex-wrap gap-x-2 text-[13px] leading-5 text-body" data-print-only>
+            <span>{email}</span><span>·</span><span>joakimjanssens.com</span><span>·</span><span
+              >linkedin.com/in/joakim-janssens</span
+            ><span>·</span><span>github.com/joe-jns</span>
+          </p>
+        </div>
+
+        <div class="flex shrink-0 items-center gap-2 pointer-coarse:gap-0" data-reveal data-print-hide style="--d:320ms">
+          <div
+            role="group"
+            aria-label="Langue / Language"
+            class="relative grid grid-cols-2 pointer-coarse:-ml-2"
+            data-lang-switch
+          >
+            <span
+              class="absolute inset-y-0 left-0 w-1/2 rounded-lg bg-surface transition-[translate] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+              data-lang-pill
+              aria-hidden="true"></span>
+            {
+              (Object.keys(languages) as Lang[]).map((code) => (
+                <button
+                  type="button"
+                  data-set-lang={code}
+                  lang={code}
+                  title={languages[code].name}
+                  aria-pressed={code === "fr" ? "true" : "false"}
+                  class="relative flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-lg px-1.5 text-[13px] leading-5 font-medium text-muted transition-colors duration-200 hover:text-ink pointer-coarse:h-11 pointer-coarse:min-w-11"
+                >
+                  {languages[code].label}
+                </button>
+              ))
+            }
+          </div>
+          <span class="h-3.5 w-px bg-hairline" aria-hidden="true"></span>
+          <ul class="flex items-center gap-0.5 pointer-coarse:-mr-2 pointer-coarse:gap-0">
+            {
+              social.map((s) => (
+                <li>
+                  <a
+                    href={s.href}
+                    aria-label={s.label}
+                    title={s.label}
+                    {...(s.href.startsWith("http") && { target: "_blank", rel: "noopener" })}
+                    class="flex size-7 items-center justify-center rounded-lg text-muted transition-[color,background-color,scale] duration-150 hover:bg-surface hover:text-ink active:scale-90 pointer-coarse:size-11"
+                  >
+                    <Icon name={s.icon} size={15} />
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2.5 text-base leading-6 text-body" data-reveal style="--d:380ms">
+        {
+          fr.bio.map((paragraph, i) => (
+            <p data-t>
+              <T fr={paragraph} en={en.bio[i]} />
+            </p>
+          ))
+        }
+      </div>
+
+      <div class="flex flex-col gap-2.5" data-reveal data-print-hide style="--d:480ms">
+        <div class="flex flex-wrap items-center gap-2">
+          <a
+            href={links.email}
+            class="group flex h-8 items-center justify-center gap-2 rounded-[10px] bg-ink pr-3 pl-2.5 text-sm leading-5 font-medium text-cream transition-[background-color,scale] duration-150 hover:bg-[#2b2b2b] active:scale-[0.97]"
+            data-t
+          >
+            <Icon
+              name="mail"
+              size={14}
+              class="text-cream/70 transition-[translate,color] duration-200 ease-out group-hover:-translate-y-px group-hover:text-accent"
+            />
+            <T fr={fr.cta.email} en={en.cta.email} />
+          </a>
+        </div>
+        <p class="text-[13px] leading-5 text-muted" data-t>
+          <T fr={`${fr.cta.noteBefore} `} en={`${en.cta.noteBefore} `} /><a
+            href={links.email}
+            data-copy={email}
+            data-copied-fr={fr.cta.copied}
+            data-copied-en={en.cta.copied}
+            title={fr.cta.copyTitle}
+            data-title-fr={fr.cta.copyTitle}
+            data-title-en={en.cta.copyTitle}
+            class="link-draw cursor-copy text-body"
+            >{email}</a
+          ><T fr={fr.cta.noteAfter} en={en.cta.noteAfter} />
+        </p>
+      </div>
+    </section>
+
+    <!-- Ce que je fais -->
+    <section
+      class="flex flex-col gap-[22px]"
+      aria-labelledby="offres"
+      data-group>
+      <h2 id="offres" class="text-base leading-6 font-normal text-ink" data-reveal data-t>
+        <T fr={fr.offers.heading} en={en.offers.heading} />
+      </h2>
+      <ul class="flex flex-col" style="--d:90ms">
+        {
+          fr.offers.items.map((o, i) => (
+            <li
+              class="flex flex-col gap-2 border-t border-hairline py-[13px] sm:flex-row sm:gap-6"
+              data-row
+              data-rule
+              style={`--i:${i}`}
+            >
+              <div class="flex h-[22px] w-[180px] shrink-0 items-center gap-2">
+                <span class="flex size-[22px] items-center justify-center rounded-md bg-surface text-ink">
+                  <Icon name={o.icon} size={13} />
+                </span>
+                <h3 class="text-sm leading-5 font-normal text-ink" data-t>
+                  <T fr={o.title} en={en.offers.items[i].title} />
+                </h3>
+              </div>
+              <p class="min-w-0 flex-1 text-[13px] leading-5 text-muted" data-t>
+                <T fr={o.desc} en={en.offers.items[i].desc} />
+              </p>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <!-- En ce moment -->
+    <section
+      class="flex flex-col gap-[22px]"
+      aria-labelledby="maintenant"
+      data-group
+      data-print-hide>
+      <div class="flex items-center justify-between gap-4" data-reveal>
+        <h2 id="maintenant" class="text-base leading-6 font-normal text-ink" data-t>
+          <T fr={fr.now.heading} en={en.now.heading} />
+        </h2>
+        <p class="text-[13px] leading-5 text-muted" data-t>
+          <span data-lang="fr">
+            {fr.now.updated} <time datetime={isoDate(updatedFr)}>{formatShortDate(updatedFr, "fr")}</time>
+          </span><span data-lang="en" lang="en">
+            {en.now.updated} <time datetime={isoDate(updatedEn)}>{formatShortDate(updatedEn, "en")}</time>
+          </span>
+        </p>
+      </div>
+      <ul class="flex flex-col" style="--d:90ms">
+        {
+          nowRows.map((row, i) => (
+            <li
+              class="flex items-center gap-3 py-[13px] [&+li]:border-t [&+li]:border-hairline"
+              data-row
+              data-rule={i > 0 ? "" : undefined}
+              data-only={!row.en ? "fr" : !row.fr ? "en" : undefined}
+              style={`--i:${i}`}
+            >
+              <span
+                class:list={["size-[7px] shrink-0 rounded-full", i === 0 ? "bg-accent" : "bg-dot-1"]}
+                aria-hidden="true"
+              />
+              <span
+                class:list={["min-w-0 flex-1 text-base leading-6", i === 0 ? "text-ink" : "text-body"]}
+                data-t
+              >
+                <T fr={row.fr?.label ?? ""} en={row.en?.label ?? ""} />
+              </span>
+              <span class="text-[13px] leading-5 text-muted" data-t>
+                <T fr={row.fr?.tag ?? ""} en={row.en?.tag ?? ""} />
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <!-- Parcours -->
+    <section
+      class="flex flex-col gap-[22px]"
+      aria-labelledby="parcours"
+      data-group>
+      <div class="flex h-7 items-center justify-between gap-4" data-reveal>
+        <h2 id="parcours" class="text-base leading-6 font-normal text-ink" data-t>
+          <T fr={fr.jobs.heading} en={en.jobs.heading} />
+        </h2>
+        <button
+          type="button"
+          hidden
+          data-print-cv
+          data-print-hide
+          data-t
+          class="group ring-hairline flex h-7 cursor-pointer items-center gap-1.5 rounded-lg pr-2.5 pl-2 text-[13px] leading-5 font-medium text-body transition-[background-color,scale] duration-150 hover:bg-surface active:scale-[0.97] pointer-coarse:h-9"
+        >
+          <Icon
+            name="file-down"
+            size={13}
+            class="text-muted transition-[translate,color] duration-200 ease-out group-hover:translate-y-px group-hover:text-ink"
+          />
+          <T fr={fr.ui.savePdf} en={en.ui.savePdf} />
+        </button>
+      </div>
+
+      <ol class="flex flex-col" style="--d:90ms">
+        {
+          fr.jobs.items.map((job, i) => {
+            const jobEn = en.jobs.items[i];
+            return (
+              <li class="border-t border-hairline py-4" data-row data-rule style={`--i:${i}`}>
+                <div class="flex min-w-0 flex-col gap-2.5">
+                  <div class="flex flex-col gap-x-6 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="flex min-w-0 flex-col">
+                      <h3 class="text-sm leading-5 font-normal text-ink" data-t>
+                        <T fr={job.title} en={jobEn.title} />
+                      </h3>
+                      <p class="text-[13px] leading-5 text-body" data-t>
+                        <T fr={`${job.org} · ${job.place}`} en={`${jobEn.org} · ${jobEn.place}`} />
+                      </p>
+                    </div>
+                    <p class="text-[13px] leading-5 whitespace-nowrap text-muted" data-t>
+                      <T fr={dates(job, "fr")} en={dates(jobEn, "en")} />
+                    </p>
+                  </div>
+                  <ul class="flex flex-col gap-1">
+                    {job.tasks.map((task, k) => (
+                      <li
+                        class="relative pl-3.5 text-[13px] leading-5 text-muted before:absolute before:top-[9px] before:left-0.5 before:size-[3px] before:rounded-full before:bg-dot-1"
+                        data-t
+                      >
+                        <T fr={task} en={jobEn.tasks[k]} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </li>
+            );
+          })
+        }
+      </ol>
+    </section>
+
+    <!-- Footer -->
+    <footer class="flex flex-col gap-5 pt-10" data-group data-print-hide>
+      <div class="h-px origin-left bg-hairline" data-line></div>
+      <div
+        class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[13px] leading-5 text-muted"
+        data-reveal
+        style="--d:150ms"
+      >
+        <p data-t>
+          <T fr={fr.footer.copyright} en={en.footer.copyright} /><span
+            class="hidden pointer-fine:inline"
+            data-shortcuts-hint
+            hidden
+          >
+            ·
+            <button
+              type="button"
+              data-shortcuts-open
+              aria-expanded="false"
+              aria-controls="raccourcis"
+              class="cursor-pointer text-muted transition-colors duration-150 hover:text-ink"
+            >
+              <kbd
+                class="inline-grid h-[18px] min-w-[18px] place-items-center rounded-[5px] bg-surface px-1 font-body text-[11px] leading-none font-medium text-body shadow-[inset_0_-1px_0_var(--color-hairline)]"
+                >?</kbd
+              >
+              <T fr={fr.ui.shortcutsHint} en={en.ui.shortcutsHint} />
+            </button>
+          </span>
+        </p>
+        <p data-t><T fr={fr.footer.status} en={en.footer.status} /></p>
+      </div>
+      <div class="relative" data-glow-zone>
+        <p
+          class="font-display text-[min(92px,calc((100vw-64px)/6.95))] leading-[min(101px,calc((100vw-64px)/6.95*1.1))] whitespace-nowrap text-surface select-none"
+          aria-hidden="true"
+          data-wordmark
+        >
+          joakimjanssens.com
+        </p>
+        <p
+          class="pointer-events-none absolute inset-0 font-display text-[min(92px,calc((100vw-64px)/6.95))] leading-[min(101px,calc((100vw-64px)/6.95*1.1))] whitespace-nowrap select-none"
+          aria-hidden="true"
+          data-glow
+        >
+          joakimjanssens.com
+        </p>
+      </div>
+    </footer>
+  </main>
+
+  <div
+    id="raccourcis"
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="raccourcis-titre"
+    data-shortcuts
+    data-print-hide
+    class="fixed right-6 bottom-6 z-50 w-[272px] rounded-[14px] bg-ink p-4 text-cream shadow-[0_18px_40px_-16px_rgb(17_17_17/0.5)]"
+  >
+    <div class="mb-3 flex items-center justify-between gap-4">
+      <p id="raccourcis-titre" class="text-sm leading-5 font-medium" data-t>
+        <T fr={fr.ui.shortcutsTitle} en={en.ui.shortcutsTitle} />
+      </p>
+      <button
+        type="button"
+        data-shortcuts-close
+        class="grid size-6 cursor-pointer place-items-center rounded-md text-cream/60 transition-colors duration-150 hover:bg-cream/10 hover:text-cream"
+      >
+        <span class="sr-only"><T fr={fr.ui.shortcuts.close} en={en.ui.shortcuts.close} /></span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"
+          ><path d="M18 6 6 18M6 6l12 12"></path></svg
+        >
+      </button>
+    </div>
+    <dl class="flex flex-col gap-2 text-[13px] leading-5">
+      {
+        (
+          [
+            ["L", "lang"],
+            ["E", "email"],
+            ["P", "pdf"],
+            ["?", "toggle"],
+            ["Esc", "close"],
+          ] as const
+        ).map(([key, action]) => (
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-cream/75" data-t>
+              <T fr={fr.ui.shortcuts[action]} en={en.ui.shortcuts[action]} />
+            </dt>
+            <dd>
+              <kbd class="inline-grid h-[22px] min-w-[22px] place-items-center rounded-md bg-cream/10 px-1.5 font-body text-xs leading-none font-medium text-cream shadow-[inset_0_-1px_0_rgb(253_251_247/0.14)]">
+                {key}
+              </kbd>
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+  </div>
+
+  <div
+    role="status"
+    aria-live="polite"
+    data-print-hide
+    class="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
+  >
+    <div
+      data-toast
+      class="flex translate-y-3 items-center gap-2 rounded-[10px] bg-ink py-2 pr-3.5 pl-3 text-sm leading-5 font-medium text-cream opacity-0 shadow-[0_10px_30px_-12px_rgb(17_17_17/0.45)] transition-[opacity,translate] duration-200 ease-out data-[shown]:translate-y-0 data-[shown]:opacity-100 motion-reduce:translate-y-0"
+    >
+      <Icon name="check" size={14} class="text-accent" />
+      <span data-toast-text></span>
+    </div>
+  </div>
+
+  <span
+    hidden
+    data-titles
+    data-page-fr={fr.meta.title}
+    data-page-en={en.meta.title}
+    data-cv-fr={fr.ui.cvFileName}
+    data-cv-en={en.ui.cvFileName}></span>
+</Base>
+
+<script>
+  type Lang = "fr" | "en";
+  const root = document.documentElement;
+  const currentLang = (): Lang => (root.lang === "en" ? "en" : "fr");
+
+  // ---- Changement de langue ----
+  const titles = document.querySelector<HTMLElement>("[data-titles]");
+  const switches = document.querySelectorAll<HTMLButtonElement>("[data-set-lang]");
+  const copyLinks = document.querySelectorAll<HTMLAnchorElement>("a[data-copy]");
+
+  const syncLangUi = () => {
+    const lang = currentLang();
+    for (const button of switches) button.setAttribute("aria-pressed", String(button.dataset.setLang === lang));
+    for (const el of document.querySelectorAll<HTMLElement>("[data-title-fr]")) {
+      el.title = el.dataset[lang === "en" ? "titleEn" : "titleFr"] ?? el.title;
+    }
+    const title = titles?.dataset[lang === "en" ? "pageEn" : "pageFr"];
+    if (title) document.title = title;
+  };
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+  let switching = false;
+  let queued: Lang | null = null;
+
+  // Flou, changement de langue pendant le flou, défloutage. Un second clic pendant l'effet est gardé pour la suite.
+  const setLang = async (lang: Lang) => {
+    if (switching) {
+      queued = lang;
+      return;
+    }
+    if (lang === currentLang()) return;
+    switching = true;
+    const reduce = reduceMotion.matches;
+
+    root.dataset.langPhase = "out";
+    await wait(reduce ? 120 : 200);
+
+    root.lang = lang;
+    syncLangUi();
+    try {
+      localStorage.setItem("lang", lang);
+    } catch {}
+
+    void root.offsetHeight; // applique la nouvelle langue floutée avant de lancer le défloutage
+    root.dataset.langPhase = "in";
+    await wait(reduce ? 180 : 520);
+    delete root.dataset.langPhase;
+    switching = false;
+
+    const next = queued;
+    queued = null;
+    if (next) setLang(next);
+  };
+
+  for (const button of switches) button.addEventListener("click", () => setLang(button.dataset.setLang as Lang));
+  syncLangUi();
+
+  // ---- Copie de l'e-mail (sans JavaScript, l'adresse reste un simple lien mailto) ----
+  const toast = document.querySelector<HTMLElement>("[data-toast]");
+  const toastText = document.querySelector<HTMLElement>("[data-toast-text]");
+  let toastTimer: number | undefined;
+
+  const showToast = (message: string) => {
+    if (!toast || !toastText) return;
+    toastText.textContent = message;
+    toast.dataset.shown = "";
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      delete toast.dataset.shown;
+      toastText.textContent = "";
+    }, 1800);
+  };
+
+  const copy = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = value;
+      field.setAttribute("readonly", "");
+      field.style.cssText = "position:fixed;opacity:0;pointer-events:none";
+      document.body.append(field);
+      field.select();
+      const ok = document.execCommand("copy");
+      field.remove();
+      return ok;
+    }
+  };
+
+  const copyEmail = async (link: HTMLAnchorElement) => {
+    const message = link.dataset[currentLang() === "en" ? "copiedEn" : "copiedFr"] ?? "";
+    if (await copy(link.dataset.copy ?? "")) showToast(message);
+    else window.location.href = link.href;
+  };
+
+  for (const link of copyLinks) {
+    link.addEventListener("click", (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      copyEmail(link);
+    });
+  }
+
+  // ---- Heure locale à Charleroi, recalée sur chaque minute pile ----
+  const clock = document.querySelector<HTMLTimeElement>("[data-clock]");
+  const clockWrap = document.querySelector<HTMLElement>("[data-clock-wrap]");
+  if (clock && clockWrap) {
+    const format = new Intl.DateTimeFormat("fr-BE", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: "Europe/Brussels",
+    });
+    const tick = () => {
+      const now = new Date();
+      clock.textContent = format.format(now);
+      clock.dateTime = now.toISOString();
+      window.setTimeout(tick, 60_000 - (now.getTime() % 60_000) + 50);
+    };
+    tick();
+    clockWrap.hidden = false;
+  }
+
+  // ---- Lueur qui suit le curseur sur la signature du bas ----
+  const glowZone = document.querySelector<HTMLElement>("[data-glow-zone]");
+  const glow = document.querySelector<HTMLElement>("[data-glow]");
+  if (glowZone && glow && window.matchMedia("(hover: hover)").matches) {
+    let target = { x: -999, y: -999 };
+    let pos = { x: -999, y: -999 };
+    let frame = 0;
+    const smooth = reduceMotion.matches ? 1 : 0.18;
+    const render = () => {
+      pos = { x: pos.x + (target.x - pos.x) * smooth, y: pos.y + (target.y - pos.y) * smooth };
+      glow.style.setProperty("--gx", `${pos.x}px`);
+      glow.style.setProperty("--gy", `${pos.y}px`);
+      frame = Math.abs(target.x - pos.x) + Math.abs(target.y - pos.y) > 0.5 ? requestAnimationFrame(render) : 0;
+    };
+    glowZone.addEventListener("pointerenter", (event) => {
+      const box = glow.getBoundingClientRect();
+      pos = target = { x: event.clientX - box.left, y: event.clientY - box.top };
+      render();
+    });
+    glowZone.addEventListener("pointermove", (event) => {
+      const box = glow.getBoundingClientRect();
+      target = { x: event.clientX - box.left, y: event.clientY - box.top };
+      if (!frame) frame = requestAnimationFrame(render);
+    });
+  }
+
+  // ---- CV en PDF : le titre de la page devient le nom de fichier proposé ----
+  let pageTitle = document.title;
+  window.addEventListener("beforeprint", () => {
+    pageTitle = document.title;
+    document.title = titles?.dataset[currentLang() === "en" ? "cvEn" : "cvFr"] ?? pageTitle;
+  });
+  window.addEventListener("afterprint", () => {
+    document.title = pageTitle;
+  });
+
+  const printButton = document.querySelector<HTMLButtonElement>("[data-print-cv]");
+  if (printButton) {
+    printButton.hidden = false;
+    printButton.addEventListener("click", () => window.print());
+  }
+
+  // ---- Raccourcis clavier ----
+  const panel = document.querySelector<HTMLElement>("[data-shortcuts]");
+  const hint = document.querySelector<HTMLElement>("[data-shortcuts-hint]");
+  const openButton = document.querySelector<HTMLButtonElement>("[data-shortcuts-open]");
+  const closeButton = document.querySelector<HTMLButtonElement>("[data-shortcuts-close]");
+
+  const setPanel = (open: boolean) => {
+    if (!panel) return;
+    if (open) panel.dataset.open = "";
+    else delete panel.dataset.open;
+    openButton?.setAttribute("aria-expanded", String(open));
+  };
+  const panelOpen = () => panel?.dataset.open !== undefined;
+
+  if (hint) hint.hidden = false;
+  openButton?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setPanel(!panelOpen());
+  });
+  closeButton?.addEventListener("click", () => setPanel(false));
+  document.addEventListener("click", (event) => {
+    if (panelOpen() && panel && !panel.contains(event.target as Node)) setPanel(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("input, textarea, select, [contenteditable]")) return;
+
+    if (event.key === "Escape") return setPanel(false);
+    if (event.key === "?") {
+      event.preventDefault();
+      return setPanel(!panelOpen());
+    }
+    switch (event.key.toLowerCase()) {
+      case "l":
+        setLang(currentLang() === "fr" ? "en" : "fr");
+        break;
+      case "e":
+        if (copyLinks[0]) copyEmail(copyLinks[0]);
+        break;
+      case "p":
+        setPanel(false);
+        window.print();
+        break;
+    }
+  });
+</script>
