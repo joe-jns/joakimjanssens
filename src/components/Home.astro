@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import Icon, { type IconName } from "./Icon.astro";
 import T from "./T.astro";
 import { content, email, formatMonth, languages, links, type Lang } from "../i18n/content";
+import { absolute } from "../lib/paths";
 import { formatShortDate, isoDate, nowUpdatedAt, readNow } from "../lib/en-ce-moment";
 
 const { fr, en } = content;
@@ -30,7 +31,7 @@ const dates = (job: (typeof fr.jobs.items)[number], lang: Lang) =>
     : `${content[lang].jobs.since} ${formatMonth(job.from, lang)}`;
 
 // Fiche « Personne » lue par Google (données structurées schema.org).
-const site = Astro.site!.href;
+const site = absolute(Astro.site);
 const current = fr.jobs.items.filter((job) => !job.to);
 const jsonLd = {
   "@context": "https://schema.org",

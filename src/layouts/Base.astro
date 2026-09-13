@@ -1,8 +1,10 @@
 ---
 import "../styles/global.css";
+import { absolute, withBase } from "../lib/paths";
 // Mêmes fichiers que ceux référencés par les feuilles de fontsource : Vite leur donne la même empreinte.
 import geistUrl from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url";
 import serifUrl from "@fontsource/instrument-serif/files/instrument-serif-latin-400-normal.woff2?url";
+
 interface Props {
   title: string;
   description: string;
@@ -11,7 +13,7 @@ interface Props {
 
 const { title, description, noindex = false } = Astro.props;
 const canonical = noindex ? undefined : new URL(Astro.url.pathname, Astro.site);
-const ogImage = new URL("/og.png", Astro.site);
+const ogImage = absolute(Astro.site, "og.png");
 ---
 
 <!doctype html>
@@ -44,8 +46,8 @@ const ogImage = new URL("/og.png", Astro.site);
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="icon" type="image/svg+xml" href={withBase("favicon.svg")} />
+    <link rel="sitemap" href={withBase("sitemap-index.xml")} />
     <meta name="theme-color" content="#ffffff" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
