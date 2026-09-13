@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist/wght.css";
+@import "@fontsource/instrument-serif/400.css";
+
+@theme {
+  --color-bg: #ffffff;
+  --color-surface: #f5f5f4;
+  --color-ink: #111111;
+  --color-body: #3d3d3d;
+  --color-muted: #787874;
+  --color-hairline: #e9e9e7;
+  --color-accent: #b4551f;
+  --color-cream: #fdfbf7;
+  --color-dot-1: #d9d9d6;
+
+  --font-body: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+}
+
+/* Les filets de la maquette ne poussent pas la boîte : on les dessine à l'intérieur. */
+@utility ring-hairline {
+  box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+@layer base {
+  html {
+    background-color: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--color-body);
+  }
+
+  ::selection {
+    background-color: var(--color-ink);
+    color: var(--color-cream);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}

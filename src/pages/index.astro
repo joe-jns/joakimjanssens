@@ -1,0 +1,225 @@
+---
+import Base from "../layouts/Base.astro";
+import Icon, { type IconName } from "../components/Icon.astro";
+
+// Liens à compléter : la maquette ne précise aucune destination.
+const links = {
+  call: "#",
+  x: "#",
+  github: "https://github.com/joe-jns",
+  linkedin: "#",
+  email: "#",
+  rss: "#",
+  parcours: "#",
+};
+
+const social: { label: string; icon: IconName; href: string }[] = [
+  { label: "GitHub", icon: "github", href: links.github },
+  { label: "X", icon: "twitter", href: links.x },
+  { label: "LinkedIn", icon: "linkedin", href: links.linkedin },
+  { label: "E-mail", icon: "mail", href: links.email },
+  { label: "Flux RSS", icon: "rss", href: links.rss },
+];
+
+const offres: { title: string; icon: IconName; desc: string }[] = [
+  {
+    title: "Sites web",
+    icon: "layout-template",
+    desc: "Dessiné dans Pen.dev, construit en Astro : une page rapide, belle, et qui transforme les visiteurs en clients.",
+  },
+  {
+    title: "IA locale",
+    icon: "cpu",
+    desc: "Des assistants qui tournent sur vos propres machines. Aucune donnée ne sort, aucun abonnement au cloud.",
+  },
+];
+
+const now = [
+  { label: "Je lance l’offre IA locale et je cherche mes premiers clients", tag: "focus", current: true },
+  { label: "Cabinets d’avocats, notaires, médecins, experts-comptables", tag: "cible" },
+  { label: "Trois places ouvertes pour un premier déploiement", tag: "offre" },
+];
+
+const parcours: { title: string; icon: IconName; dates: string; current?: boolean }[] = [
+  { title: "IA locale", icon: "cpu", dates: "Jan 26 — auj.", current: true },
+  { title: "Freelance produit", icon: "briefcase", dates: "Mar 23 — Jan 26" },
+  { title: "Studio Arpent", icon: "pen-tool", dates: "Sep 21 — Mar 23" },
+  { title: "Premier SaaS", icon: "code", dates: "Jan 19 — Sep 21" },
+];
+
+const isExternal = (href: string) => href.startsWith("http");
+---
+
+<Base
+  title="Joakim Janssens — Sites web qui convertissent · IA locale"
+  description="Des sites web beaux et qui vendent vraiment, et des IA qui tournent entièrement sur les machines de mes clients."
+>
+  <main class="mx-auto flex w-full max-w-[700px] flex-col gap-[44px] px-8 pt-14 pb-9">
+    <!-- Header -->
+    <section class="flex flex-col gap-[22px]">
+      <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div class="flex flex-col gap-0.5">
+          <h1 class="font-display text-[22px] leading-[33px] font-normal text-ink">Joakim Janssens</h1>
+          <p class="text-base leading-6 text-muted">Sites web qui convertissent · IA locale</p>
+        </div>
+        <ul class="flex items-center gap-0.5">
+          {
+            social.map((s) => (
+              <li>
+                <a
+                  href={s.href}
+                  aria-label={s.label}
+                  title={s.label}
+                  {...(isExternal(s.href) && { target: "_blank", rel: "noopener" })}
+                  class="flex size-7 items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
+                >
+                  <Icon name={s.icon} size={15} />
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div class="flex flex-col gap-2.5 text-base leading-6 text-body">
+        <p>
+          salut, moi c’est Joakim. Je fais deux choses&nbsp;: des sites web beaux et qui vendent vraiment, et des IA qui
+          tournent entièrement sur les machines de mes clients.
+        </p>
+        <p>
+          L’IA locale, c’est pour les métiers dont les données n’ont pas le droit de partir sur des serveurs américains
+          — avocats, notaires, cabinets médicaux et comptables. Les sites, c’est pour ceux qui en ont assez d’une jolie
+          vitrine qui ne rapporte rien.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2.5">
+        <div class="flex flex-wrap items-center gap-2">
+          <a
+            href={links.call}
+            class="flex h-8 items-center justify-center rounded-[10px] bg-ink px-3 text-sm leading-5 font-medium text-cream transition-colors duration-150 hover:bg-[#2b2b2b]"
+          >
+            Réserver un appel
+          </a>
+          <a
+            href={links.x}
+            {...(isExternal(links.x) && { target: "_blank", rel: "noopener" })}
+            class="ring-hairline flex h-8 items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm leading-5 font-medium text-body transition-colors duration-150 hover:bg-surface"
+          >
+            Écrire sur X
+            <Icon name="arrow-up-right" size={13} class="text-muted" />
+          </a>
+        </div>
+        <p class="text-[13px] leading-5 text-muted">
+          20 minutes, sans engagement — on regarde ensemble si l’IA locale tient la route chez vous.
+        </p>
+      </div>
+    </section>
+
+    <!-- Ce que je fais -->
+    <section class="flex flex-col gap-[22px]" aria-labelledby="offres">
+      <h2 id="offres" class="text-base leading-6 font-normal text-ink">Ce que je fais</h2>
+      <ul class="flex flex-col">
+        {
+          offres.map((o) => (
+            <li class="flex flex-col gap-2 border-t border-hairline py-[13px] sm:flex-row sm:gap-6">
+              <div class="flex h-[22px] w-[180px] shrink-0 items-center gap-2">
+                <span class="flex size-[22px] items-center justify-center rounded-md bg-surface text-ink">
+                  <Icon name={o.icon} size={13} />
+                </span>
+                <h3 class="text-sm leading-5 font-normal text-ink">{o.title}</h3>
+              </div>
+              <p class="min-w-0 flex-1 text-[13px] leading-5 text-muted">{o.desc}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <!-- En ce moment -->
+    <section class="flex flex-col gap-[22px]" aria-labelledby="maintenant">
+      <div class="flex items-center justify-between gap-4">
+        <h2 id="maintenant" class="text-base leading-6 font-normal text-ink">En ce moment</h2>
+        <p class="text-[13px] leading-5 text-muted">
+          mis à jour le <time datetime="2026-09-12">12 sept.</time>
+        </p>
+      </div>
+      <ul class="flex flex-col">
+        {
+          now.map((item) => (
+            <li class="flex items-center gap-3 py-[13px] [&+li]:border-t [&+li]:border-hairline">
+              <span
+                class:list={["size-[7px] shrink-0 rounded-full", item.current ? "bg-accent" : "bg-dot-1"]}
+                aria-hidden="true"
+              />
+              <span class:list={["min-w-0 flex-1 text-base leading-6", item.current ? "text-ink" : "text-body"]}>
+                {item.label}
+              </span>
+              <span class="text-[13px] leading-5 text-muted">{item.tag}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <!-- Parcours -->
+    <section class="flex flex-col gap-[22px]" aria-labelledby="parcours">
+      <div class="flex h-7 items-center justify-between gap-4">
+        <h2 id="parcours" class="text-base leading-6 font-normal text-ink">Parcours</h2>
+        <a
+          href={links.parcours}
+          class="ring-hairline flex h-7 items-center justify-center gap-1 rounded-lg pr-2 pl-2.5 text-[13px] leading-5 font-medium text-body transition-colors duration-150 hover:bg-surface"
+        >
+          Tout voir
+          <Icon name="chevron-right" size={13} class="text-muted" />
+        </a>
+      </div>
+
+      <div class="flex flex-col gap-3.5">
+        <div class="relative hidden h-2.5 grid-cols-4 gap-2 sm:grid" aria-hidden="true">
+          <span class="absolute inset-x-1 top-1 h-px bg-hairline"></span>
+          {
+            parcours.map((p) => (
+              <span
+                class:list={[
+                  "relative mt-px block size-2 rounded-full",
+                  p.current ? "bg-accent" : "bg-bg shadow-[inset_0_0_0_1.2px_var(--color-muted)]",
+                ]}
+              />
+            ))
+          }
+        </div>
+        <ol class="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-4 sm:gap-y-2">
+          {
+            parcours.map((p) => (
+              <li class="flex min-w-0 flex-col gap-1.5">
+                <div class="flex h-[22px] items-center gap-2">
+                  <span class="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-surface text-body">
+                    <Icon name={p.icon} size={13} />
+                  </span>
+                  <span class="truncate text-sm leading-5 text-ink">{p.title}</span>
+                </div>
+                <span class="text-[13px] leading-5 text-muted">{p.dates}</span>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="flex flex-col gap-5 pt-10">
+      <div class="h-px bg-hairline"></div>
+      <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-[13px] leading-5 text-muted">
+        <p>© 2026 — construit en public</p>
+        <p>Ouvert à un premier déploiement pilote</p>
+      </div>
+      <p
+        class="font-display text-[min(92px,calc((100vw-64px)/6.95))] leading-[min(101px,calc((100vw-64px)/6.95*1.1))] whitespace-nowrap text-surface select-none"
+        aria-hidden="true"
+      >
+        joakimjanssens.com
+      </p>
+    </footer>
+  </main>
+</Base>
