@@ -1,0 +1,2 @@
+# Page d'erreur du site pour les adresses qui n'existent pas.
+ErrorDocument 404 /404.html

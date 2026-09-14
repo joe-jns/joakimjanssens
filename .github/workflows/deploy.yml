@@ -1,44 +1,58 @@
-name: Déploiement GitHub Pages
+name: Build & Deploy
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+  workflow_dispatch: # bouton « Run workflow » pour redéployer sans commit
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: deploy-prod
+  cancel-in-progress: false # ne jamais couper un rsync en cours
+
+env:
+  NODE_VERSION: "22"
+  DEPLOY_PATH: "/var/www/vhosts/joakimjanssens.com/httpdocs/"
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    env:
-      # Adresse GitHub Pages tant que joakimjanssens.com n'est pas branché.
-      # Une fois le domaine configuré : SITE_URL=https://joakimjanssens.com, BASE_PATH=/ et public/CNAME.
-      SITE_URL: https://joe-jns.github.io
-      BASE_PATH: /joakimjanssens/
     steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
           # Historique complet : la date « mis à jour le » vient du dernier commit du fichier En ce moment.
           fetch-depth: 0
 
-      - name: Installer, construire et empaqueter le site
-        uses: withastro/action@v6
+      - name: Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Publier sur GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Dépendances
+        run: npm ci
+
+      - name: Build Astro
+        run: npm run build
+
+      - name: Garde-fou (build non vide)
+        run: test -f dist/index.html
+
+      - name: Clé SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Déploiement (rsync)
+        run: |
+          rsync -rltvz --delete \
+            --exclude '.well-known' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./dist/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_PATH }}"
+
+      - name: Nettoyage
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
