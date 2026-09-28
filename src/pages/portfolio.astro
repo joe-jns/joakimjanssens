@@ -1,0 +1,462 @@
+---
+import Base from "../layouts/Base.astro";
+import Icon from "../components/Icon.astro";
+import { withBase } from "../lib/paths";
+
+// Mur d'images sans début ni fin : uniquement des maquettes, aucun texte.
+// Un clic ouvre la page d'accueil du site dans une petite fenêtre de navigateur.
+const maquettes = [
+  "maison-eclat",
+  "lisiere",
+  "delorme",
+  "julien-jardinier",
+  "ambre",
+  "corouge",
+  "garage-delcourt",
+].map((nom) => ({
+  vignette: withBase(`maquettes/${nom}-tile.webp`),
+  page: withBase(`maquettes/${nom}-page.webp`),
+}));
+---
+
+<Base
+  title="Portfolio · Joakim Janssens"
+  description="Maquettes de sites web : institut de beauté, architectes, cabinet d’avocats, paysagiste, coaching, traiteur, garage."
+>
+  <main class="mur" id="mur" data-maquettes={JSON.stringify(maquettes)}></main>
+
+  <a href={withBase()} class="retour" aria-label="Retour à l’accueil" title="Retour à l’accueil">
+    <Icon name="arrow-left" size={16} />
+  </a>
+
+  <div class="voile" id="voile" role="dialog" aria-modal="true" aria-label="Aperçu de la maquette">
+    <div class="fenetre">
+      <div class="barre">
+        <div class="pastilles">
+          <span class="pastille"></span>
+          <span class="pastille"></span>
+          <span class="pastille"></span>
+        </div>
+        <span class="champ"></span>
+        <button type="button" class="croix" id="fermer" aria-label="Fermer" title="Fermer">
+          <Icon name="x" size={14} />
+        </button>
+      </div>
+      <div class="page" id="page"><img id="apercu" alt="" /></div>
+    </div>
+  </div>
+</Base>
+
+<style is:global>
+  body:has(#mur) {
+    padding: 0 var(--marge-mur);
+    background: var(--color-surface);
+    overflow-x: hidden;
+  }
+
+  body:has(#mur)[data-fige] {
+    overflow: hidden;
+  }
+</style>
+
+<style>
+  :root {
+    --marge-mur: 20px;
+    --decalage: 90px;
+  }
+
+  /* Des colonnes indépendantes, chacune décalée par rapport à sa voisine. */
+  .mur {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--marge-mur);
+  }
+
+  .mur :global(.colonne) {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--marge-mur);
+  }
+
+  .mur :global(.vignette) {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-hairline);
+    cursor: zoom-in;
+    aspect-ratio: 4 / 3;
+  }
+
+  .mur :global(.vignette img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 900ms var(--ease-out-expo);
+  }
+
+  @media (hover: hover) {
+    .mur :global(.vignette:hover img) {
+      transform: scale(1.02);
+    }
+  }
+
+  /* Retour à l'accueil */
+  .retour {
+    position: fixed;
+    top: var(--marge-mur);
+    left: var(--marge-mur);
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    color: var(--color-body);
+    background: var(--color-bg);
+    box-shadow: 0 6px 20px -8px rgb(17 17 17 / 0.35);
+    transition:
+      color 150ms,
+      scale 150ms var(--ease-out-expo);
+  }
+
+  .retour:hover {
+    color: var(--color-ink);
+    scale: 1.06;
+  }
+
+  .retour:active {
+    scale: 0.94;
+  }
+
+  @media (pointer: coarse) {
+    .retour {
+      width: 44px;
+      height: 44px;
+    }
+  }
+
+  /* La fenêtre de navigateur */
+  .voile {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: var(--marge-mur);
+    background: color-mix(in oklab, var(--color-surface) 86%, transparent);
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 260ms var(--ease-out-expo),
+      visibility 0s linear 260ms;
+  }
+
+  .voile[data-ouvert] {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .fenetre {
+    width: min(1180px, 100%);
+    height: min(88vh, 900px);
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--color-bg);
+    box-shadow: 0 40px 90px -34px rgb(17 17 17 / 0.45);
+    transform: translateY(18px) scale(0.985);
+    transition: transform 420ms var(--ease-out-expo);
+  }
+
+  .voile[data-ouvert] .fenetre {
+    transform: none;
+  }
+
+  .barre {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 10px 0 14px;
+    height: 40px;
+    flex: none;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-hairline);
+  }
+
+  .pastilles {
+    display: flex;
+    gap: 8px;
+  }
+
+  .pastille {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--color-hairline);
+  }
+
+  .champ {
+    flex: 1;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--color-bg);
+    box-shadow: inset 0 0 0 1px var(--color-hairline);
+  }
+
+  .croix {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition:
+      color 150ms,
+      background-color 150ms;
+  }
+
+  .croix:hover {
+    color: var(--color-ink);
+    background: var(--color-hairline);
+  }
+
+  .page {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--color-bg);
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-dot-1) transparent;
+  }
+
+  .page img {
+    display: block;
+    width: 100%;
+    opacity: 0;
+    transition: opacity 220ms var(--ease-out-expo);
+  }
+
+  .page img[data-prete] {
+    opacity: 1;
+  }
+</style>
+
+<script>
+  interface Maquette {
+    vignette: string;
+    page: string;
+  }
+
+  const mur = document.getElementById("mur") as HTMLElement;
+  const voile = document.getElementById("voile") as HTMLElement;
+  const page = document.getElementById("page") as HTMLElement;
+  const apercu = document.getElementById("apercu") as HTMLImageElement;
+  const maquettes: Maquette[] = JSON.parse(mur.dataset.maquettes ?? "[]");
+
+  // Décalage vertical de départ de chaque colonne, en nombre de « crans ».
+  const decalages = [0, 1, 2, 0.5, 1.5, 2.5];
+
+  const nombreDeColonnes = () => {
+    const largeur = window.innerWidth;
+    if (largeur < 560) return 1;
+    if (largeur < 820) return 2;
+    if (largeur < 1100) return 3;
+    return 4;
+  };
+
+  let colonnes: HTMLElement[] = [];
+  let tirage: Maquette[] = [];
+
+  /** Pioche sans répétition immédiate : on vide un paquet mélangé avant d'en reprendre un. */
+  function prochaineMaquette(eviter?: string) {
+    if (tirage.length === 0) {
+      tirage = [...maquettes];
+      for (let i = tirage.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [tirage[i], tirage[j]] = [tirage[j], tirage[i]];
+      }
+    }
+    if (tirage[0].page === eviter && tirage.length > 1) {
+      [tirage[0], tirage[1]] = [tirage[1], tirage[0]];
+    }
+    return tirage.shift() as Maquette;
+  }
+
+  // Il n'y a que sept images de vignette, réutilisées à l'infini : on les charge une fois
+  // au départ, puis chaque nouvelle vignette s'affiche instantanément depuis le cache.
+  const prechargees = new Map<string, HTMLImageElement>();
+  for (const maquette of maquettes) {
+    const image = new Image();
+    image.src = maquette.vignette;
+    image.decoding = "sync";
+    prechargees.set(maquette.vignette, image);
+  }
+
+  function creerVignette(maquette: Maquette, prioritaire: boolean) {
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "vignette";
+    bouton.dataset.page = maquette.page;
+
+    const image = document.createElement("img");
+    image.src = maquette.vignette;
+    image.alt = "";
+    image.loading = "eager";
+    image.decoding = "sync";
+    image.fetchPriority = prioritaire ? "high" : "low";
+    bouton.append(image);
+    return bouton;
+  }
+
+  /** Une rangée = une vignette par colonne, pour que toutes grandissent pareil. */
+  function ajouterUneRangee(prioritaire = false) {
+    for (const colonne of colonnes) {
+      const derniere = (colonne.lastElementChild as HTMLElement | null)?.dataset.page;
+      colonne.append(creerVignette(prochaineMaquette(derniere), prioritaire));
+    }
+  }
+
+  /** Rangée ajoutée par le haut : on compense la hauteur pour que rien ne saute. */
+  function ajouterUneRangeeEnHaut() {
+    const avant = document.documentElement.scrollHeight;
+    for (const colonne of colonnes) {
+      const premiere = (colonne.firstElementChild as HTMLElement | null)?.dataset.page;
+      colonne.prepend(creerVignette(prochaineMaquette(premiere), false));
+    }
+    const ajout = document.documentElement.scrollHeight - avant;
+    if (ajout > 0) window.scrollBy(0, ajout);
+  }
+
+  function construire() {
+    mur.textContent = "";
+    colonnes = [];
+    tirage = [];
+    const total = nombreDeColonnes();
+    for (let i = 0; i < total; i++) {
+      const colonne = document.createElement("div");
+      colonne.className = "colonne";
+      colonne.style.marginTop = `calc(var(--decalage) * ${decalages[i % decalages.length]})`;
+      mur.append(colonne);
+      colonnes.push(colonne);
+    }
+
+    // Assez de rangées au-dessus et au-dessous, puis on se place au milieu :
+    // ni haut ni bas visibles, on arrive en plein milieu du mur.
+    const hauteurVignette = mur.clientWidth / total / (4 / 3);
+    const parEcran = Math.ceil(window.innerHeight / (hauteurVignette + 20)) + 2;
+    for (let i = 0; i < parEcran * 8; i++) ajouterUneRangee(i >= parEcran * 3 && i < parEcran * 5);
+    window.scrollTo({ top: document.documentElement.scrollHeight / 2, behavior: "instant" });
+  }
+
+  /** Garde toujours plusieurs écrans d'images en réserve, en haut comme en bas.
+   *  Immédiat, et non différé : un défilement rapide découvrirait sinon le bord du mur. */
+  function combler() {
+    const reserve = window.innerHeight * 3;
+    let garde = 0;
+    while (window.scrollY < reserve && garde++ < 80) ajouterUneRangeeEnHaut();
+
+    garde = 0;
+    while (
+      document.documentElement.scrollHeight - window.scrollY - window.innerHeight < reserve &&
+      garde++ < 80
+    ) {
+      ajouterUneRangee();
+    }
+    elaguer();
+  }
+
+  /** Retire les rangées très loin de l'écran : le mur reste infini sans alourdir la page. */
+  function elaguer() {
+    const limite = window.innerHeight * 6;
+    let garde = 0;
+
+    while (garde++ < 40) {
+      const premiere = colonnes[0].firstElementChild as HTMLElement | null;
+      if (!premiere) break;
+      const bas = premiere.getBoundingClientRect().bottom;
+      if (bas > -limite) break;
+      const avant = document.documentElement.scrollHeight;
+      for (const colonne of colonnes) colonne.firstElementChild?.remove();
+      const retire = avant - document.documentElement.scrollHeight;
+      if (retire > 0) window.scrollBy(0, -retire);
+    }
+
+    garde = 0;
+    while (garde++ < 40) {
+      const derniere = colonnes[0].lastElementChild as HTMLElement | null;
+      if (!derniere || colonnes[0].children.length < 4) break;
+      if (derniere.getBoundingClientRect().top < window.innerHeight + limite) break;
+      for (const colonne of colonnes) colonne.lastElementChild?.remove();
+    }
+  }
+
+  window.addEventListener("scroll", combler, { passive: true });
+  window.addEventListener("wheel", combler, { passive: true });
+  window.addEventListener("touchstart", combler, { passive: true });
+  window.addEventListener("keydown", combler);
+
+  let redimension: number | undefined;
+  window.addEventListener("resize", () => {
+    if (nombreDeColonnes() === colonnes.length) return;
+    window.clearTimeout(redimension);
+    redimension = window.setTimeout(() => {
+      if (nombreDeColonnes() !== colonnes.length) construire();
+    }, 200);
+  });
+
+  construire();
+
+  // Ouverture de la fenêtre de navigateur
+  let ancre: HTMLElement | null = null;
+
+  const ouvrir = async (bouton: HTMLElement) => {
+    ancre = bouton;
+    // On efface l'image précédente avant de charger la nouvelle : sinon l'ancienne
+    // resterait visible une demi-seconde.
+    delete apercu.dataset.prete;
+    apercu.removeAttribute("src");
+    page.scrollTop = 0;
+    voile.dataset.ouvert = "";
+    document.body.dataset.fige = "";
+
+    const demande = bouton.dataset.page ?? "";
+    apercu.src = demande;
+    await apercu.decode().catch(() => {});
+    if (apercu.getAttribute("src") === demande) apercu.dataset.prete = "";
+  };
+
+  const fermer = () => {
+    delete voile.dataset.ouvert;
+    delete document.body.dataset.fige;
+    delete apercu.dataset.prete;
+    ancre?.focus({ preventScroll: true });
+    ancre = null;
+  };
+
+  mur.addEventListener("click", (evenement) => {
+    const bouton = (evenement.target as HTMLElement).closest(".vignette") as HTMLElement | null;
+    if (bouton) ouvrir(bouton);
+  });
+
+  voile.addEventListener("click", (evenement) => {
+    const cible = evenement.target as HTMLElement;
+    if (cible === voile || cible.closest("#fermer")) fermer();
+  });
+
+  document.addEventListener("keydown", (evenement) => {
+    if (evenement.key === "Escape" && voile.dataset.ouvert !== undefined) fermer();
+  });
+</script>
