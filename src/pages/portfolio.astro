@@ -3,27 +3,36 @@ import Base from "../layouts/Base.astro";
 import Icon from "../components/Icon.astro";
 import { withBase } from "../lib/paths";
 
-// Mur d'images sans début ni fin : uniquement des maquettes, aucun texte.
+// Mur d'images sans début ni fin : uniquement des maquettes, aucun texte visible.
 // Un clic ouvre la page d'accueil du site dans une petite fenêtre de navigateur.
+// Le nom ne s'affiche pas : il sert de repère aux lecteurs d'écran et au survol.
 const maquettes = [
-  "maison-eclat",
-  "lisiere",
-  "delorme",
-  "julien-jardinier",
-  "ambre",
-  "corouge",
-  "garage-delcourt",
-].map((nom) => ({
-  vignette: withBase(`maquettes/${nom}-tile.webp`),
-  page: withBase(`maquettes/${nom}-page.webp`),
+  { fichier: "maison-eclat", nom: "Maison Éclat", hauteurPage: 5882 },
+  { fichier: "lisiere", nom: "Lisière", hauteurPage: 6332 },
+  { fichier: "delorme", nom: "Delorme & Associés", hauteurPage: 5556 },
+  { fichier: "julien-jardinier", nom: "Julien Jardinier", hauteurPage: 6390 },
+  { fichier: "ambre", nom: "Ambre coaching", hauteurPage: 9296 },
+  { fichier: "corouge", nom: "Co Rouge", hauteurPage: 4156 },
+  { fichier: "garage-delcourt", nom: "Garage Delcourt", hauteurPage: 5680 },
+].map(({ fichier, nom, hauteurPage }) => ({
+  nom,
+  vignette: withBase(`maquettes/${fichier}-tile-600.webp`),
+  vignetteMoyenne: withBase(`maquettes/${fichier}-tile-900.webp`),
+  vignetteLarge: withBase(`maquettes/${fichier}-tile-1200.webp`),
+  page: withBase(`maquettes/${fichier}-page.webp`),
+  hauteurPage,
 }));
+
+// Une vignette occupe environ un quart de la largeur, moins les marges.
+const taillesVignette =
+  "(max-width: 560px) calc(100vw - 40px), (max-width: 820px) calc(50vw - 30px), (max-width: 1100px) calc(33vw - 27px), calc(25vw - 25px)";
 ---
 
 <Base
   title="Portfolio · Joakim Janssens"
   description="Maquettes de sites web : institut de beauté, architectes, cabinet d’avocats, paysagiste, coaching, traiteur, garage."
 >
-  <main class="mur" id="mur" data-maquettes={JSON.stringify(maquettes)}></main>
+  <main class="mur" id="mur" data-maquettes={JSON.stringify(maquettes)} data-tailles={taillesVignette}></main>
 
   <a href={withBase()} class="retour" aria-label="Retour à l’accueil" title="Retour à l’accueil">
     <Icon name="arrow-left" size={16} />
@@ -42,7 +51,7 @@ const maquettes = [
           <Icon name="x" size={14} />
         </button>
       </div>
-      <div class="page" id="page"><img id="apercu" alt="" /></div>
+      <div class="page" id="page"><img id="apercu" alt="" width="1400" height="6000" /></div>
     </div>
   </div>
 </Base>
@@ -256,8 +265,12 @@ const maquettes = [
 
 <script>
   interface Maquette {
+    nom: string;
     vignette: string;
+    vignetteMoyenne: string;
+    vignetteLarge: string;
     page: string;
+    hauteurPage: number;
   }
 
   const mur = document.getElementById("mur") as HTMLElement;
@@ -265,6 +278,9 @@ const maquettes = [
   const page = document.getElementById("page") as HTMLElement;
   const apercu = document.getElementById("apercu") as HTMLImageElement;
   const maquettes: Maquette[] = JSON.parse(mur.dataset.maquettes ?? "[]");
+  const tailles = mur.dataset.tailles ?? "";
+  const jeuDeTailles = (m: Maquette) =>
+    m.vignette + " 600w, " + m.vignetteMoyenne + " 900w, " + m.vignetteLarge + " 1200w";
 
   // Décalage vertical de départ de chaque colonne, en nombre de « crans ».
   const decalages = [0, 1, 2, 0.5, 1.5, 2.5];
@@ -295,14 +311,17 @@ const maquettes = [
     return tirage.shift() as Maquette;
   }
 
-  // Il n'y a que sept images de vignette, réutilisées à l'infini : on les charge une fois
-  // au départ, puis chaque nouvelle vignette s'affiche instantanément depuis le cache.
-  const prechargees = new Map<string, HTMLImageElement>();
+  // Les sept vignettes sont annoncées dans l'en-tête de la page : elles sont déjà en mémoire
+  // quand le mur se construit, donc aucune image n'apparaît en cours de défilement.
+
+  // Les sept vignettes reviennent en boucle : on les charge une fois, en arrière-plan et
+  // sans priorité, pour qu'aucune image n'apparaisse en cours de défilement.
   for (const maquette of maquettes) {
     const image = new Image();
+    image.sizes = tailles;
+    image.srcset = jeuDeTailles(maquette);
     image.src = maquette.vignette;
     image.decoding = "sync";
-    prechargees.set(maquette.vignette, image);
   }
 
   function creerVignette(maquette: Maquette, prioritaire: boolean) {
@@ -310,10 +329,18 @@ const maquettes = [
     bouton.type = "button";
     bouton.className = "vignette";
     bouton.dataset.page = maquette.page;
+    bouton.dataset.hauteur = String(maquette.hauteurPage);
+    // Invisible à l'écran, mais lu par les lecteurs d'écran et affiché au survol.
+    bouton.setAttribute("aria-label", "Voir la maquette " + maquette.nom);
+    bouton.title = maquette.nom;
 
     const image = document.createElement("img");
+    image.sizes = tailles;
+    image.srcset = jeuDeTailles(maquette);
     image.src = maquette.vignette;
     image.alt = "";
+    image.width = 1200;
+    image.height = 900;
     image.loading = "eager";
     image.decoding = "sync";
     image.fetchPriority = prioritaire ? "high" : "low";
@@ -433,6 +460,8 @@ const maquettes = [
     document.body.dataset.fige = "";
 
     const demande = bouton.dataset.page ?? "";
+    apercu.width = 1400;
+    apercu.height = Number(bouton.dataset.hauteur) || 6000;
     apercu.src = demande;
     await apercu.decode().catch(() => {});
     if (apercu.getAttribute("src") === demande) apercu.dataset.prete = "";

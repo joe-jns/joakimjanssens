@@ -1,2 +1,13 @@
 # Page d'erreur du site pour les adresses qui n'existent pas.
 ErrorDocument 404 /404.html
+
+# Mémoire du navigateur. Les fichiers de /_astro/ portent une empreinte dans leur nom et les
+# images ne changent jamais : un an. Les pages, elles, doivent toujours être revérifiées.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|webp|png|jpg|svg|woff2|woff)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(html|xml|txt)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+</IfModule>
