@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import Icon, { type IconName } from "./Icon.astro";
 import T from "./T.astro";
 import { content, email, formatMonth, languages, links, type Lang } from "../i18n/content";
-import { absolute } from "../lib/paths";
+import { absolute, withBase } from "../lib/paths";
 import { formatShortDate, isoDate, nowUpdatedAt, readNow } from "../lib/en-ce-moment";
 
 const { fr, en } = content;
@@ -188,26 +188,42 @@ const jsonLd = {
       </h2>
       <ul class="flex flex-col" style="--d:90ms">
         {
-          fr.offers.items.map((o, i) => (
-            <li
-              class="flex flex-col gap-2 border-t border-hairline py-[13px] sm:flex-row sm:gap-6"
-              data-row
-              data-rule
-              style={`--i:${i}`}
-            >
-              <div class="flex h-[22px] w-[180px] shrink-0 items-center gap-2">
-                <span class="flex size-[22px] items-center justify-center rounded-md bg-surface text-ink">
-                  <Icon name={o.icon} size={13} />
-                </span>
-                <h3 class="text-sm leading-5 font-normal text-ink" data-t>
-                  <T fr={o.title} en={en.offers.items[i].title} />
-                </h3>
-              </div>
-              <p class="min-w-0 flex-1 text-[13px] leading-5 text-muted" data-t>
-                <T fr={o.desc} en={en.offers.items[i].desc} />
-              </p>
-            </li>
-          ))
+          fr.offers.items.map((o, i) => {
+            const contenu = (
+              <>
+                <div class="flex h-[22px] w-[180px] shrink-0 items-center gap-2">
+                  <span class="flex size-[22px] items-center justify-center rounded-md bg-surface text-ink">
+                    <Icon name={o.icon} size={13} />
+                  </span>
+                  <h3 class="text-sm leading-5 font-normal text-ink" data-t>
+                    <T fr={o.title} en={en.offers.items[i].title} />
+                  </h3>
+                  {o.lien && (
+                    <Icon
+                      name="arrow-up-right"
+                      size={13}
+                      class="-ml-0.5 text-hairline transition-[translate,color] duration-200 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-muted"
+                    />
+                  )}
+                </div>
+                <p class="min-w-0 flex-1 text-[13px] leading-5 text-muted transition-colors duration-200 group-hover:text-body" data-t>
+                  <T fr={o.desc} en={en.offers.items[i].desc} />
+                </p>
+              </>
+            );
+            const ligne = "flex flex-col gap-2 py-[13px] sm:flex-row sm:gap-6";
+            return (
+              <li class="border-t border-hairline" data-row data-rule style={`--i:${i}`}>
+                {o.lien ? (
+                  <a href={withBase(o.lien)} class={`group ${ligne}`}>
+                    {contenu}
+                  </a>
+                ) : (
+                  <div class={ligne}>{contenu}</div>
+                )}
+              </li>
+            );
+          })
         }
       </ul>
     </section>

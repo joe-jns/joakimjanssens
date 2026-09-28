@@ -32,7 +32,7 @@ export interface Content {
   cta: { email: string; noteBefore: string; noteAfter: string; copyTitle: string; copied: string };
   socialEmail: string;
   langSwitch: string;
-  offers: { heading: string; items: { title: string; icon: IconName; desc: string }[] };
+  offers: { heading: string; items: { title: string; icon: IconName; desc: string; lien?: string }[] };
   now: { heading: string; updated: string };
   jobs: { heading: string; since: string; between: string; items: Job[] };
   footer: { copyright: string; status: string };
@@ -77,6 +77,7 @@ export const content: Record<Lang, Content> = {
         {
           title: "Sites web",
           icon: "layout-template",
+          lien: "portfolio",
           desc: `Dessiné dans Pen.dev, construit en Astro${nb}: une page rapide, belle, et qui transforme les visiteurs en clients.`,
         },
         {
@@ -176,6 +177,7 @@ export const content: Record<Lang, Content> = {
         {
           title: "Websites",
           icon: "layout-template",
+          lien: "portfolio",
           desc: "Designed in Pen.dev, built with Astro: fast, good-looking pages that turn visitors into clients.",
         },
         {
