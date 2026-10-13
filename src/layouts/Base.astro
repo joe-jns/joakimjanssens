@@ -9,9 +9,12 @@ interface Props {
   title: string;
   description: string;
   noindex?: boolean;
+  /** Page perso : invisible des moteurs, sans aperçu de partage ni lien vers le sitemap. */
+  hidden?: boolean;
 }
 
-const { title, description, noindex = false } = Astro.props;
+const { title, description, hidden = false } = Astro.props;
+const noindex = Astro.props.noindex || hidden;
 const canonical = noindex ? undefined : new URL(Astro.url.pathname, Astro.site);
 const ogImage = absolute(Astro.site, "og.png");
 ---
@@ -45,10 +48,20 @@ const ogImage = absolute(Astro.site, "og.png");
     <link rel="preload" href={geistUrl} as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
     <meta name="description" content={description} />
-    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    {
+      hidden ? (
+        <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+      ) : noindex ? (
+        <meta name="robots" content="noindex" />
+      ) : (
+        <link rel="canonical" href={canonical} />
+      )
+    }
     <link rel="icon" type="image/svg+xml" href={withBase("favicon.svg")} />
-    <link rel="sitemap" href={withBase("sitemap-index.xml")} />
+    {!hidden && <link rel="sitemap" href={withBase("sitemap-index.xml")} />}
     <meta name="theme-color" content="#ffffff" />
+    {!hidden && (
+    <Fragment>
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -67,6 +80,8 @@ const ogImage = absolute(Astro.site, "og.png");
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:creator" content="@joe_ghl" />
     <meta name="twitter:image" content={ogImage} />
+    </Fragment>
+    )}
     <slot name="head" />
     <script is:inline>
       document.documentElement.classList.add("motion");
