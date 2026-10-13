@@ -10,12 +10,14 @@ import Base from "../layouts/Base.astro";
     <meta name="apple-mobile-web-app-title" content="Argent" />
   </Fragment>
 
-  <main class="mx-auto flex w-full max-w-[520px] flex-col gap-7 px-4 pt-8 pb-16 text-body">
+  <main class="mx-auto flex w-full max-w-[520px] flex-col gap-7 px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-body">
     <header class="flex flex-col gap-1">
       <p class="text-[13px] leading-5 text-muted">Aujourd’hui, <span id="today-label"></span></p>
       <p class="font-display text-[56px] leading-[1.05] text-ink" id="balance">0 €</p>
       <p class="text-[13px] leading-5 text-muted" id="balance-note"></p>
     </header>
+
+    <div data-panel="accueil" class="flex flex-col gap-7">
 
     <button
       id="day-done"
@@ -49,6 +51,21 @@ import Base from "../layouts/Base.astro";
       </form>
     </details>
 
+    <!-- Projection -->
+    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-proj">
+      <h2 id="t-proj" class="text-sm font-medium text-ink">Combien j’aurai le…</h2>
+      <input id="p-date" type="date" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none" />
+      <input id="p-range" type="range" min="0" max="120" value="0" class="w-full accent-[#111]" aria-label="Jours à partir d’aujourd’hui" />
+      <p class="font-display text-[44px] leading-[1.1] text-ink" id="p-result">0 €</p>
+      <p class="text-[13px] leading-5 text-muted" id="p-detail"></p>
+      <label class="flex items-center gap-2 text-sm">
+        <input id="p-workdays" type="checkbox" class="size-4 accent-[#111]" />
+        Compter mes journées à venir (lun–ven, payées le jeudi d’après)
+      </label>
+    </section>
+    </div>
+
+    <div data-panel="ajouter" class="flex flex-col gap-7">
     <!-- Ajouter un mouvement -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-add">
       <h2 id="t-add" class="text-sm font-medium text-ink">Ajouter un mouvement</h2>
@@ -83,6 +100,9 @@ import Base from "../layouts/Base.astro";
       </form>
     </section>
 
+    </div>
+
+    <div data-panel="recurrents" class="flex flex-col gap-7">
     <!-- Paiements récurrents -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-rec">
       <h2 id="t-rec" class="text-sm font-medium text-ink">Paiements récurrents</h2>
@@ -119,19 +139,10 @@ import Base from "../layouts/Base.astro";
       </details>
     </section>
 
-    <!-- Projection -->
-    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-proj">
-      <h2 id="t-proj" class="text-sm font-medium text-ink">Combien j’aurai le…</h2>
-      <input id="p-date" type="date" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none" />
-      <input id="p-range" type="range" min="0" max="120" value="0" class="w-full accent-[#111]" aria-label="Jours à partir d’aujourd’hui" />
-      <p class="font-display text-[44px] leading-[1.1] text-ink" id="p-result">0 €</p>
-      <p class="text-[13px] leading-5 text-muted" id="p-detail"></p>
-      <label class="flex items-center gap-2 text-sm">
-        <input id="p-workdays" type="checkbox" class="size-4 accent-[#111]" />
-        Compter mes journées à venir (lun–ven, payées le jeudi d’après)
-      </label>
-    </section>
 
+    </div>
+
+    <div data-panel="historique" class="flex flex-col gap-7">
     <!-- Mouvements -->
     <section class="flex flex-col gap-3" aria-labelledby="t-list">
       <div class="flex items-baseline justify-between gap-3">
@@ -168,9 +179,58 @@ import Base from "../layouts/Base.astro";
         </div>
       </div>
     </details>
+    </div>
   </main>
 
+  <!-- Onglets collés en bas de l'écran -->
+  <nav
+    class="fixed inset-x-0 bottom-0 z-10 border-t border-hairline bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+    aria-label="Sections"
+  >
+    <div class="mx-auto grid max-w-[520px] grid-cols-4">
+      <button type="button" data-tab="accueil" class="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        Accueil
+      </button>
+      <button type="button" data-tab="ajouter" class="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        Ajouter
+      </button>
+      <button type="button" data-tab="recurrents" class="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        Récurrents
+      </button>
+      <button type="button" data-tab="historique" class="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg>
+        Historique
+      </button>
+    </div>
+  </nav>
+
   <style>
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 9px 0 8px;
+      font-size: 11px;
+      line-height: 14px;
+      font-weight: 500;
+      color: var(--color-muted);
+    }
+    .tab svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.75;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .tab[aria-current="page"] {
+      color: var(--color-ink);
+    }
     summary.plain {
       list-style: none;
     }
@@ -291,6 +351,7 @@ import Base from "../layouts/Base.astro";
         label: $<HTMLInputElement>("f-label").value.trim(),
       });
       save();
+      flash(e.target as HTMLFormElement);
       $<HTMLInputElement>("f-amount").value = "";
       $<HTMLInputElement>("f-label").value = "";
       render();
@@ -358,6 +419,7 @@ import Base from "../layouts/Base.astro";
         label: $<HTMLInputElement>("r-label").value.trim(),
       });
       save();
+      flash(e.target as HTMLFormElement);
       $<HTMLInputElement>("r-amount").value = "";
       $<HTMLInputElement>("r-label").value = "";
       ($("rec-details") as HTMLDetailsElement).open = false;
@@ -581,6 +643,38 @@ import Base from "../layouts/Base.astro";
       setTimeout(() => render(), 2500);
       return false;
     }
+
+    // --- Onglets ---
+    const showTab = (name: string) => {
+      if (!document.querySelector(`[data-panel="${name}"]`)) name = "accueil";
+      document.querySelectorAll<HTMLElement>("[data-panel]").forEach((el) => (el.hidden = el.dataset.panel !== name));
+      document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) => {
+        if (b.dataset.tab === name) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      });
+      try {
+        localStorage.setItem("argent:tab", name);
+      } catch {}
+    };
+    document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) =>
+      b.addEventListener("click", () => {
+        showTab(b.dataset.tab!);
+        scrollTo(0, 0);
+      }),
+    );
+    let savedTab = "accueil";
+    try {
+      savedTab = localStorage.getItem("argent:tab") || "accueil";
+    } catch {}
+    showTab(savedTab);
+
+    // Confirmation brève sur un bouton d'ajout (l'entrée peut être datée plus tard et ne pas bouger le solde).
+    const flash = (form: HTMLFormElement) => {
+      const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+      const label = btn.dataset.label ?? (btn.dataset.label = btn.textContent!.trim());
+      btn.textContent = "Ajouté ✓";
+      setTimeout(() => (btn.textContent = label), 1200);
+    };
 
     setSign(-1);
     setRsign(-1);
