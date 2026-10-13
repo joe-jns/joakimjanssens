@@ -26,6 +26,7 @@ import Base from "../layouts/Base.astro";
     </button>
     <p id="day-hint" class="-mt-5 hidden text-center text-[13px] leading-5 text-muted"></p>
 
+
     <!-- Ajouter un mouvement -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-add">
       <h2 id="t-add" class="text-sm font-medium text-ink">Ajouter un mouvement</h2>
@@ -69,7 +70,7 @@ import Base from "../layouts/Base.astro";
       <p class="text-[13px] leading-5 text-muted" id="p-detail"></p>
       <label class="flex items-center gap-2 text-sm">
         <input id="p-workdays" type="checkbox" class="size-4 accent-[#111]" />
-        Compter mes journées à venir (lun–ven)
+        Compter mes journées à venir (lun–ven, payées le jeudi d’après)
       </label>
     </section>
 
@@ -116,7 +117,7 @@ import Base from "../layouts/Base.astro";
   </style>
 
   <script>
-    type Entry = { id: string; date: string; amount: number; label: string };
+    type Entry = { id: string; date: string; amount: number; label: string; kind?: "day" };
     type State = { entries: Entry[]; dayAmount: number; workdays: boolean };
 
     const KEY = "argent:v1";
@@ -158,17 +159,27 @@ import Base from "../layouts/Base.astro";
       } catch {}
     };
 
-    const balanceAt = (date: string) =>
-      state.entries.filter((e) => e.date <= date).reduce((sum, e) => sum + e.amount, 0);
+    // Paie chaque jeudi pour la semaine d'avant : un jour travaillé est payé le jeudi de la semaine suivante.
+    const isDay = (e: Entry) => e.kind === "day" || (e.label === "Journée" && e.amount > 0);
+    const payday = (date: string) => addDays(date, 10 - ((parse(date).getDay() + 6) % 7));
+    const isWorkday = (date: string) => parse(date).getDay() % 6 !== 0;
 
-    // Jours ouvrés (lun–ven) strictement après aujourd'hui, jusqu'à la date incluse.
-    const workdaysUntil = (date: string) => {
-      let n = 0;
-      for (let d = addDays(today(), 1); d <= date; d = addDays(d, 1)) {
-        const wd = parse(d).getDay();
-        if (wd !== 0 && wd !== 6) n++;
-      }
-      return n;
+    // Argent en poche à une date : les journées ne comptent qu'une fois payées.
+    const balanceAt = (date: string) =>
+      state.entries
+        .filter((e) => (isDay(e) ? payday(e.date) : e.date) <= date)
+        .reduce((sum, e) => sum + e.amount, 0);
+    // Journées faites mais pas encore payées à cette date.
+    const pendingAt = (date: string) =>
+      state.entries.filter((e) => isDay(e) && e.date <= date && payday(e.date) > date);
+
+    // Journées à venir (lun–ven) jusqu'à la date : aujourd'hui compte tant que le bouton n'a pas été pressé.
+    const futureDays = (target: string) => {
+      const t = today();
+      const doneToday = state.entries.some((e) => isDay(e) && e.date === t);
+      const days: string[] = [];
+      for (let d = doneToday ? addDays(t, 1) : t; d <= target; d = addDays(d, 1)) if (isWorkday(d)) days.push(d);
+      return days;
     };
 
     // --- Formulaire ---
@@ -203,7 +214,7 @@ import Base from "../layouts/Base.astro";
 
     // --- Journée finie ---
     $("day-done").addEventListener("click", () => {
-      state.entries.push({ id: crypto.randomUUID(), date: today(), amount: state.dayAmount, label: "Journée" });
+      state.entries.push({ id: crypto.randomUUID(), date: today(), amount: state.dayAmount, label: "Journée", kind: "day" });
       save();
       render();
     });
@@ -259,17 +270,27 @@ import Base from "../layouts/Base.astro";
     // --- Rendu ---
     function renderProjection() {
       const target = pDate.value || today();
-      const base = balanceAt(target);
-      const wd = state.workdays && target > today() ? workdaysUntil(target) : 0;
-      const total = base + wd * state.dayAmount;
-      $("p-result").textContent = fmt(total);
+      const t = today();
+      const days = state.workdays ? futureDays(target) : [];
+      const paidDays = days.filter((d) => payday(d) <= target).length;
+      $("p-result").textContent = fmt(balanceAt(target) + paidDays * state.dayAmount);
 
-      const planned = state.entries
-        .filter((e) => e.date > today() && e.date <= target)
-        .reduce((s, e) => s + e.amount, 0);
-      const parts = [`le ${longDate(target)}`, `aujourd’hui ${fmt(balanceAt(today()))}`];
+      // Ce qui arrive entre aujourd'hui et la date : paies du jeudi d'un côté, mouvements prévus de l'autre.
+      const between = (e: Entry) => {
+        const d = isDay(e) ? payday(e.date) : e.date;
+        return d > t && d <= target;
+      };
+      const pay =
+        state.entries.filter((e) => isDay(e) && between(e)).reduce((s, e) => s + e.amount, 0) +
+        paidDays * state.dayAmount;
+      const planned = state.entries.filter((e) => !isDay(e) && between(e)).reduce((s, e) => s + e.amount, 0);
+      const later =
+        pendingAt(target).reduce((s, e) => s + e.amount, 0) + (days.length - paidDays) * state.dayAmount;
+
+      const parts = [`en poche le ${longDate(target)}`, `aujourd’hui ${fmt(balanceAt(t))}`];
+      if (pay) parts.push(`paies du jeudi ${signed(pay)}`);
       if (planned) parts.push(`prévus ${signed(planned)}`);
-      if (wd) parts.push(`${wd} journée${wd > 1 ? "s" : ""} ${signed(wd * state.dayAmount)}`);
+      if (later) parts.push(`puis ${signed(later)} déjà gagnés, payés plus tard`);
       $("p-detail").textContent = parts.join(" · ");
     }
 
@@ -277,12 +298,19 @@ import Base from "../layouts/Base.astro";
       const t = today();
       $("today-label").textContent = longDate(t);
       $("balance").textContent = fmt(balanceAt(t));
-      $("balance-note").textContent = "";
+      // Prochaine paie : les journées déjà faites qui tombent le jeudi suivant.
+      const pending = pendingAt(t);
+      const next = pending.map((e) => payday(e.date)).sort()[0];
+      const nextSum = pending.filter((e) => payday(e.date) === next).reduce((s, e) => s + e.amount, 0);
+      const rest = pending.reduce((s, e) => s + e.amount, 0) - nextSum;
+      $("balance-note").textContent = next
+        ? `${signed(nextSum)} à recevoir le ${longDate(next)}` + (rest ? ` · puis ${signed(rest)}` : "")
+        : "";
       $("day-amount").textContent = signed(state.dayAmount);
       $<HTMLInputElement>("s-day").value = String(state.dayAmount);
       $<HTMLInputElement>("p-workdays").checked = state.workdays;
 
-      const doneToday = state.entries.filter((e) => e.date === t && e.label === "Journée").length;
+      const doneToday = state.entries.filter((e) => e.date === t && isDay(e)).length;
       const hint = $("day-hint");
       hint.classList.toggle("hidden", !doneToday);
       hint.textContent = doneToday > 1 ? `Comptée ${doneToday} fois aujourd’hui.` : "Journée d’aujourd’hui comptée.";
@@ -294,7 +322,8 @@ import Base from "../layouts/Base.astro";
       for (const e of sorted) {
         const li = document.createElement("li");
         li.className = "flex items-center gap-3 border-b border-hairline py-3";
-        const future = e.date > t;
+        const due = isDay(e) ? payday(e.date) : e.date;
+        const future = due > t;
         li.innerHTML = `
           <div class="min-w-0 flex-1">
             <p class="truncate text-[15px] text-ink"></p>
@@ -304,7 +333,9 @@ import Base from "../layouts/Base.astro";
           <button type="button" class="-mr-2 size-9 rounded-lg text-muted active:bg-surface" aria-label="Supprimer">✕</button>`;
         const [label, date] = li.querySelectorAll("div p");
         label.textContent = e.label || (e.amount > 0 ? "Rentrée" : "Sortie");
-        date.textContent = (future ? "Prévu · " : "") + longDate(e.date);
+        date.textContent = isDay(e)
+          ? `${longDate(e.date)} · ${future ? "payée le" : "payée"} ${longDate(due)}`
+          : (future ? "Prévu · " : "") + longDate(e.date);
         const amount = li.querySelector(":scope > p")!;
         amount.textContent = signed(e.amount);
         amount.classList.add(e.amount > 0 ? "text-ink" : "text-[#b4234a]");
