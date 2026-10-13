@@ -26,38 +26,28 @@ import Base from "../layouts/Base.astro";
     </button>
     <p id="day-hint" class="-mt-5 hidden text-center text-[13px] leading-5 text-muted"></p>
 
-    <!-- Journées déjà faites, ajoutées d'un coup -->
-    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-past">
-      <h2 id="t-past" class="text-sm font-medium text-ink">Journées déjà faites</h2>
-      <form id="past" class="flex flex-col gap-3">
+    <!-- Journées oubliées : repliées, on en a rarement besoin -->
+    <details class="-mt-4 text-[13px] leading-5 text-muted">
+      <summary class="plain mx-auto w-fit cursor-pointer underline decoration-hairline underline-offset-4">
+        Ajouter des journées oubliées
+      </summary>
+      <form id="past" class="mt-3 flex flex-col gap-2 rounded-2xl p-3 ring-hairline">
         <div class="grid grid-cols-2 gap-2">
-          <label class="flex flex-col gap-1 text-[13px] text-muted">
+          <label class="flex flex-col gap-1">
             Du
-            <input
-              id="past-from"
-              type="date"
-              required
-              class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]"
-            />
+            <input id="past-from" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
           </label>
-          <label class="flex flex-col gap-1 text-[13px] text-muted">
+          <label class="flex flex-col gap-1">
             Au
-            <input
-              id="past-to"
-              type="date"
-              required
-              class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]"
-            />
+            <input id="past-to" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
           </label>
         </div>
-        <button id="past-submit" type="submit" class="h-11 rounded-xl bg-ink text-sm font-medium text-cream active:scale-[0.98]">
+        <button id="past-submit" type="submit" class="h-10 rounded-xl bg-surface text-sm font-medium text-ink active:scale-[0.98]">
           Ajouter les journées
         </button>
-        <p class="text-[13px] leading-5 text-muted">
-          Du lundi au vendredi seulement. Un jour déjà compté n’est pas ajouté deux fois.
-        </p>
+        <p>Du lundi au vendredi seulement. Un jour déjà compté n’est pas ajouté deux fois.</p>
       </form>
-    </section>
+    </details>
 
     <!-- Ajouter un mouvement -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-add">
@@ -145,6 +135,12 @@ import Base from "../layouts/Base.astro";
   </main>
 
   <style>
+    summary.plain {
+      list-style: none;
+    }
+    summary.plain::-webkit-details-marker {
+      display: none;
+    }
     .sign[aria-checked="true"] {
       background: var(--color-ink);
       color: var(--color-cream);
