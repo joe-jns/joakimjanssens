@@ -108,7 +108,10 @@ import Base from "../layouts/Base.astro";
 
     <!-- Mouvements -->
     <section class="flex flex-col gap-3" aria-labelledby="t-list">
-      <h2 id="t-list" class="text-sm font-medium text-ink">Mouvements</h2>
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="t-list" class="text-sm font-medium text-ink">Mouvements</h2>
+        <p class="text-[13px] text-muted">Touche un montant pour le corriger</p>
+      </div>
       <ul id="list" class="flex flex-col"></ul>
       <p id="empty" class="text-sm text-muted">
         Rien pour l’instant. Commence par ajouter ce que tu as aujourd’hui (« + Je reçois », libellé « départ »).
@@ -392,18 +395,19 @@ import Base from "../layouts/Base.astro";
             <p class="truncate text-[15px] text-ink"></p>
             <p class="text-[13px] text-muted"></p>
           </div>
-          <p class="text-[15px] font-medium tabular-nums"></p>
-          <button type="button" class="-mr-2 size-9 rounded-lg text-muted active:bg-surface" aria-label="Supprimer">✕</button>`;
+          <button type="button" data-amount class="h-9 text-[15px] font-medium tabular-nums underline decoration-hairline decoration-dotted underline-offset-4" aria-label="Corriger le montant"></button>
+          <button type="button" data-del class="-mr-2 size-9 rounded-lg text-muted active:bg-surface" aria-label="Supprimer">✕</button>`;
         const [label, date] = li.querySelectorAll("div p");
         label.textContent = e.label || (e.amount > 0 ? "Rentrée" : "Sortie");
         date.textContent = isDay(e)
           ? `${longDate(e.date)} · ${future ? "payée le" : "payée"} ${longDate(due)}`
           : (future ? "Prévu · " : "") + longDate(e.date);
-        const amount = li.querySelector(":scope > p")!;
+        const amount = li.querySelector<HTMLButtonElement>("[data-amount]")!;
         amount.textContent = signed(e.amount);
         amount.classList.add(e.amount > 0 ? "text-ink" : "text-[#b4234a]");
         if (future) li.classList.add("opacity-70");
-        li.querySelector("button")!.addEventListener("click", () => {
+        amount.addEventListener("click", () => editAmount(amount, e));
+        li.querySelector("[data-del]")!.addEventListener("click", () => {
           if (!confirmDelete(li)) return;
           state.entries = state.entries.filter((x) => x.id !== e.id);
           save();
@@ -415,9 +419,40 @@ import Base from "../layouts/Base.astro";
       renderProjection();
     }
 
+    // Toucher un montant le remplace par un champ : le signe d'origine est gardé (une dette reste une dette).
+    function editAmount(btn: HTMLButtonElement, e: Entry) {
+      const input = document.createElement("input");
+      input.inputMode = "decimal";
+      input.value = String(Math.abs(e.amount)).replace(".", ",");
+      input.className =
+        "h-9 w-24 rounded-lg bg-surface px-2 text-right text-base font-medium text-ink tabular-nums outline-none ring-hairline";
+      let done = false;
+      const commit = () => {
+        if (done) return;
+        done = true;
+        const n = Math.abs(toNumber(input.value));
+        if (n) {
+          e.amount = Math.sign(e.amount) * n;
+          save();
+        }
+        render();
+      };
+      input.addEventListener("blur", commit);
+      input.addEventListener("keydown", (k) => {
+        if (k.key === "Enter") input.blur();
+        if (k.key === "Escape") {
+          done = true;
+          render();
+        }
+      });
+      btn.replaceWith(input);
+      input.focus();
+      input.select();
+    }
+
     // Suppression en deux taps : le premier arme la croix, le second supprime.
     function confirmDelete(li: HTMLElement) {
-      const btn = li.querySelector("button")!;
+      const btn = li.querySelector<HTMLButtonElement>("[data-del]")!;
       if (btn.dataset.armed) return true;
       btn.dataset.armed = "1";
       btn.textContent = "Sûr ?";
