@@ -63,6 +63,18 @@ import Base from "../layouts/Base.astro";
         Compter mes journées à venir (lun–ven, payées le jeudi d’après)
       </label>
     </section>
+
+    <!-- Derniers mouvements -->
+    <section class="flex flex-col gap-1" aria-labelledby="t-recent">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="t-recent" class="text-sm font-medium text-ink">Derniers mouvements</h2>
+        <button type="button" data-goto="historique" class="text-[13px] text-muted underline decoration-hairline underline-offset-4">
+          Tout voir
+        </button>
+      </div>
+      <ul id="recent" class="flex flex-col"></ul>
+      <p id="recent-empty" class="pt-2 text-sm text-muted">Rien pour l’instant.</p>
+    </section>
     </div>
 
     <div data-panel="ajouter" class="flex flex-col gap-7">
@@ -563,43 +575,50 @@ import Base from "../layouts/Base.astro";
       hint.classList.toggle("hidden", !doneToday);
       hint.textContent = doneToday > 1 ? `Comptée ${doneToday} fois aujourd’hui.` : "Journée d’aujourd’hui comptée.";
 
-      const list = $("list");
-      list.replaceChildren();
-      const sorted = [...state.entries].sort((a, b) => b.date.localeCompare(a.date));
+      // Plus récent d'abord ; à date égale, le dernier ajouté en premier.
+      const sorted = state.entries
+        .map((e, i) => ({ e, i }))
+        .sort((a, b) => b.e.date.localeCompare(a.e.date) || b.i - a.i)
+        .map((x) => x.e);
+      $("list").replaceChildren(...sorted.map((e) => entryRow(e, t)));
       $("empty").classList.toggle("hidden", sorted.length > 0);
-      for (const e of sorted) {
-        const li = document.createElement("li");
-        li.className = "flex items-center gap-3 border-b border-hairline py-3";
-        const due = isDay(e) ? payday(e.date) : e.date;
-        const future = due > t;
-        li.innerHTML = `
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-[15px] text-ink"></p>
-            <p class="text-[13px] text-muted"></p>
-          </div>
-          <button type="button" data-amount class="h-9 text-[15px] font-medium tabular-nums underline decoration-hairline decoration-dotted underline-offset-4" aria-label="Corriger le montant"></button>
-          <button type="button" data-del class="-mr-2 size-9 rounded-lg text-muted active:bg-surface" aria-label="Supprimer">✕</button>`;
-        const [label, date] = li.querySelectorAll("div p");
-        label.textContent = e.label || (e.amount > 0 ? "Rentrée" : "Sortie");
-        date.textContent = isDay(e)
-          ? `${longDate(e.date)} · ${future ? "payée le" : "payée"} ${longDate(due)}`
-          : (future ? "Prévu · " : "") + longDate(e.date);
-        const amount = li.querySelector<HTMLButtonElement>("[data-amount]")!;
-        amount.textContent = signed(e.amount);
-        amount.classList.add(e.amount > 0 ? "text-ink" : "text-[#b4234a]");
-        if (future) li.classList.add("opacity-70");
-        amount.addEventListener("click", () => editAmount(amount, e));
-        li.querySelector("[data-del]")!.addEventListener("click", () => {
-          if (!confirmDelete(li)) return;
-          state.entries = state.entries.filter((x) => x.id !== e.id);
-          save();
-          render();
-        });
-        list.append(li);
-      }
+      const recent = sorted.filter((e) => e.date <= t).slice(0, 5);
+      $("recent").replaceChildren(...recent.map((e) => entryRow(e, t)));
+      $("recent-empty").classList.toggle("hidden", recent.length > 0);
       renderPast();
       renderRecurring();
       renderProjection();
+    }
+
+    function entryRow(e: Entry, t: string) {
+      const li = document.createElement("li");
+      li.className = "flex items-center gap-3 border-b border-hairline py-3";
+      const due = isDay(e) ? payday(e.date) : e.date;
+      const future = due > t;
+      li.innerHTML = `
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[15px] text-ink"></p>
+          <p class="text-[13px] text-muted"></p>
+        </div>
+        <button type="button" data-amount class="h-9 text-[15px] font-medium tabular-nums underline decoration-hairline decoration-dotted underline-offset-4" aria-label="Corriger le montant"></button>
+        <button type="button" data-del class="-mr-2 size-9 rounded-lg text-muted active:bg-surface" aria-label="Supprimer">✕</button>`;
+      const [label, date] = li.querySelectorAll("div p");
+      label.textContent = e.label || (e.amount > 0 ? "Rentrée" : "Sortie");
+      date.textContent = isDay(e)
+        ? `${longDate(e.date)} · ${future ? "payée le" : "payée"} ${longDate(due)}`
+        : (future ? "Prévu · " : "") + longDate(e.date);
+      const amount = li.querySelector<HTMLButtonElement>("[data-amount]")!;
+      amount.textContent = signed(e.amount);
+      amount.classList.add(e.amount > 0 ? "text-ink" : "text-[#b4234a]");
+      if (future) li.classList.add("opacity-70");
+      amount.addEventListener("click", () => editAmount(amount, e));
+      li.querySelector("[data-del]")!.addEventListener("click", () => {
+        if (!confirmDelete(li)) return;
+        state.entries = state.entries.filter((x) => x.id !== e.id);
+        save();
+        render();
+      });
+      return li;
     }
 
     // Toucher un montant le remplace par un champ : le signe d'origine est gardé (une dette reste une dette).
@@ -659,6 +678,12 @@ import Base from "../layouts/Base.astro";
     document.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) =>
       b.addEventListener("click", () => {
         showTab(b.dataset.tab!);
+        scrollTo(0, 0);
+      }),
+    );
+    document.querySelectorAll<HTMLButtonElement>("[data-goto]").forEach((b) =>
+      b.addEventListener("click", () => {
+        showTab(b.dataset.goto!);
         scrollTo(0, 0);
       }),
     );
