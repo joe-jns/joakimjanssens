@@ -83,6 +83,42 @@ import Base from "../layouts/Base.astro";
       </form>
     </section>
 
+    <!-- Paiements récurrents -->
+    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-rec">
+      <h2 id="t-rec" class="text-sm font-medium text-ink">Paiements récurrents</h2>
+      <ul id="rec-list" class="flex flex-col"></ul>
+      <details id="rec-details" class="text-sm">
+        <summary class="plain cursor-pointer text-body">+ Ajouter un paiement récurrent</summary>
+        <form id="rec" class="mt-3 flex flex-col gap-3">
+          <div class="grid grid-cols-2 gap-1 rounded-xl bg-bg p-1 text-sm font-medium" role="radiogroup" aria-label="Sens">
+            <button type="button" data-rsign="-1" class="sign h-9 rounded-lg">− Je paie</button>
+            <button type="button" data-rsign="1" class="sign h-9 rounded-lg">+ Je reçois</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="r-amount" inputmode="decimal" placeholder="Montant (€)" required class="min-w-0 h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            <input id="r-label" placeholder="Pour quoi ? (ex. loyer)" class="min-w-0 h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex flex-col gap-1 text-[13px] text-muted">
+              Revient
+              <select id="r-every" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]">
+                <option value="month">Chaque mois</option>
+                <option value="week">Chaque semaine</option>
+                <option value="2weeks">Toutes les 2 semaines</option>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1 text-[13px] text-muted">
+              Prochaine fois le
+              <input id="r-first" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            </label>
+          </div>
+          <button type="submit" class="h-11 rounded-xl bg-ink text-sm font-medium text-cream active:scale-[0.98]">
+            Ajouter
+          </button>
+        </form>
+      </details>
+    </section>
+
     <!-- Projection -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-proj">
       <h2 id="t-proj" class="text-sm font-medium text-ink">Combien j’aurai le…</h2>
@@ -149,7 +185,9 @@ import Base from "../layouts/Base.astro";
 
   <script>
     type Entry = { id: string; date: string; amount: number; label: string; kind?: "day" };
-    type State = { entries: Entry[]; dayAmount: number; workdays: boolean };
+    type Every = "month" | "week" | "2weeks";
+    type Recurring = { id: string; first: string; every: Every; amount: number; label: string };
+    type State = { entries: Entry[]; recurring: Recurring[]; dayAmount: number; workdays: boolean };
 
     const KEY = "argent:v1";
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -179,9 +217,9 @@ import Base from "../layouts/Base.astro";
     function load(): State {
       try {
         const s = JSON.parse(localStorage.getItem(KEY) || "");
-        if (s && Array.isArray(s.entries)) return { dayAmount: 100, workdays: true, ...s };
+        if (s && Array.isArray(s.entries)) return { recurring: [], dayAmount: 100, workdays: true, ...s };
       } catch {}
-      return { entries: [], dayAmount: 100, workdays: true };
+      return { entries: [], recurring: [], dayAmount: 100, workdays: true };
     }
     let state = load();
     const save = () => {
@@ -195,11 +233,26 @@ import Base from "../layouts/Base.astro";
     const payday = (date: string) => addDays(date, 10 - ((parse(date).getDay() + 6) % 7));
     const isWorkday = (date: string) => parse(date).getDay() % 6 !== 0;
 
+    // Dates d'un paiement récurrent jusqu'à « to » incluse. Au mois, le jour est gardé (le 31 tombe le 30 ou le 28).
+    const nthDate = (r: Recurring, n: number) => {
+      if (r.every !== "month") return addDays(r.first, n * (r.every === "week" ? 7 : 14));
+      const f = parse(r.first);
+      const last = new Date(f.getFullYear(), f.getMonth() + n + 1, 0).getDate();
+      return iso(new Date(f.getFullYear(), f.getMonth() + n, Math.min(f.getDate(), last)));
+    };
+    const occurrences = (r: Recurring, to: string) => {
+      const dates: string[] = [];
+      for (let n = 0, d = r.first; d <= to && n < 1000; d = nthDate(r, ++n)) dates.push(d);
+      return dates;
+    };
+    const recurringBetween = (from: string, to: string) =>
+      state.recurring.reduce((sum, r) => sum + occurrences(r, to).filter((d) => d > from).length * r.amount, 0);
+
     // Argent en poche à une date : les journées ne comptent qu'une fois payées.
     const balanceAt = (date: string) =>
       state.entries
         .filter((e) => (isDay(e) ? payday(e.date) : e.date) <= date)
-        .reduce((sum, e) => sum + e.amount, 0);
+        .reduce((sum, e) => sum + e.amount, 0) + recurringBetween("", date);
     // Journées faites mais pas encore payées à cette date.
     const pendingAt = (date: string) =>
       state.entries.filter((e) => isDay(e) && e.date <= date && payday(e.date) > date);
@@ -217,12 +270,12 @@ import Base from "../layouts/Base.astro";
     let sign = -1;
     const setSign = (s: number) => {
       sign = s;
-      document.querySelectorAll<HTMLButtonElement>(".sign").forEach((b) => {
+      document.querySelectorAll<HTMLButtonElement>("[data-sign]").forEach((b) => {
         b.setAttribute("role", "radio");
         b.setAttribute("aria-checked", String(Number(b.dataset.sign) === s));
       });
     };
-    document.querySelectorAll<HTMLButtonElement>(".sign").forEach((b) =>
+    document.querySelectorAll<HTMLButtonElement>("[data-sign]").forEach((b) =>
       b.addEventListener("click", () => setSign(Number(b.dataset.sign))),
     );
 
@@ -281,6 +334,75 @@ import Base from "../layouts/Base.astro";
       render();
     });
 
+    // --- Paiements récurrents ---
+    let rsign = -1;
+    const setRsign = (s: number) => {
+      rsign = s;
+      document.querySelectorAll<HTMLButtonElement>("[data-rsign]").forEach((b) => {
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", String(Number(b.dataset.rsign) === s));
+      });
+    };
+    document.querySelectorAll<HTMLButtonElement>("[data-rsign]").forEach((b) =>
+      b.addEventListener("click", () => setRsign(Number(b.dataset.rsign))),
+    );
+    $<HTMLFormElement>("rec").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const amount = Math.abs(toNumber($<HTMLInputElement>("r-amount").value));
+      if (!amount) return;
+      state.recurring.push({
+        id: crypto.randomUUID(),
+        first: $<HTMLInputElement>("r-first").value || today(),
+        every: $<HTMLSelectElement>("r-every").value as Every,
+        amount: rsign * amount,
+        label: $<HTMLInputElement>("r-label").value.trim(),
+      });
+      save();
+      $<HTMLInputElement>("r-amount").value = "";
+      $<HTMLInputElement>("r-label").value = "";
+      ($("rec-details") as HTMLDetailsElement).open = false;
+      render();
+    });
+
+    const everyLabel = (r: Recurring) =>
+      r.every === "week"
+        ? `chaque ${parse(r.first).toLocaleDateString("fr-BE", { weekday: "long" })}`
+        : r.every === "2weeks"
+          ? "toutes les 2 semaines"
+          : `chaque mois le ${parse(r.first).getDate()}`;
+
+    function renderRecurring() {
+      const t = today();
+      const list = $("rec-list");
+      list.replaceChildren();
+      for (const r of state.recurring) {
+        const next = occurrences(r, addDays(t, 400)).find((d) => d > t) ?? r.first;
+        const li = document.createElement("li");
+        li.className = "flex items-center gap-3 border-b border-hairline py-3";
+        li.innerHTML = `
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[15px] text-ink"></p>
+            <p class="text-[13px] text-muted"></p>
+          </div>
+          <button type="button" data-amount class="h-9 text-[15px] font-medium tabular-nums underline decoration-hairline decoration-dotted underline-offset-4" aria-label="Corriger le montant"></button>
+          <button type="button" data-del class="-mr-2 size-9 rounded-lg text-muted active:bg-bg" aria-label="Supprimer">✕</button>`;
+        const [label, when] = li.querySelectorAll("div p");
+        label.textContent = r.label || (r.amount > 0 ? "Rentrée" : "Paiement");
+        when.textContent = `${everyLabel(r)} · prochain le ${longDate(next)}`;
+        const amount = li.querySelector<HTMLButtonElement>("[data-amount]")!;
+        amount.textContent = signed(r.amount);
+        amount.classList.add(r.amount > 0 ? "text-ink" : "text-[#b4234a]");
+        amount.addEventListener("click", () => editAmount(amount, r));
+        li.querySelector("[data-del]")!.addEventListener("click", () => {
+          if (!confirmDelete(li)) return;
+          state.recurring = state.recurring.filter((x) => x.id !== r.id);
+          save();
+          render();
+        });
+        list.append(li);
+      }
+    }
+
     // --- Projection ---
     const pDate = $<HTMLInputElement>("p-date");
     const pRange = $<HTMLInputElement>("p-range");
@@ -321,7 +443,7 @@ import Base from "../layouts/Base.astro";
       try {
         const s = JSON.parse(await file.text());
         if (!Array.isArray(s.entries)) throw 0;
-        state = { dayAmount: 100, workdays: true, ...s };
+        state = { recurring: [], dayAmount: 100, workdays: true, ...s };
         save();
         render();
       } catch {
@@ -352,6 +474,8 @@ import Base from "../layouts/Base.astro";
       const parts = [`en poche le ${longDate(target)}`, `aujourd’hui ${fmt(balanceAt(t))}`];
       if (pay) parts.push(`paies du jeudi ${signed(pay)}`);
       if (planned) parts.push(`prévus ${signed(planned)}`);
+      const rec = recurringBetween(t, target);
+      if (rec) parts.push(`récurrents ${signed(rec)}`);
       if (later) parts.push(`puis ${signed(later)} déjà gagnés, payés plus tard`);
       $("p-detail").textContent = parts.join(" · ");
     }
@@ -412,11 +536,12 @@ import Base from "../layouts/Base.astro";
         list.append(li);
       }
       renderPast();
+      renderRecurring();
       renderProjection();
     }
 
     // Toucher un montant le remplace par un champ : le signe d'origine est gardé (une dette reste une dette).
-    function editAmount(btn: HTMLButtonElement, e: Entry) {
+    function editAmount(btn: HTMLButtonElement, e: { amount: number }) {
       const input = document.createElement("input");
       input.inputMode = "decimal";
       input.value = String(Math.abs(e.amount)).replace(".", ",");
@@ -458,6 +583,8 @@ import Base from "../layouts/Base.astro";
     }
 
     setSign(-1);
+    setRsign(-1);
+    $<HTMLInputElement>("r-first").value = today();
     $<HTMLInputElement>("f-date").value = today();
     pDate.value = today();
     pastFrom.value = pastTo.value = addDays(today(), -1);
