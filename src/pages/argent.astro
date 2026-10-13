@@ -26,6 +26,38 @@ import Base from "../layouts/Base.astro";
     </button>
     <p id="day-hint" class="-mt-5 hidden text-center text-[13px] leading-5 text-muted"></p>
 
+    <!-- Journées déjà faites, ajoutées d'un coup -->
+    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-past">
+      <h2 id="t-past" class="text-sm font-medium text-ink">Journées déjà faites</h2>
+      <form id="past" class="flex flex-col gap-3">
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex flex-col gap-1 text-[13px] text-muted">
+            Du
+            <input
+              id="past-from"
+              type="date"
+              required
+              class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]"
+            />
+          </label>
+          <label class="flex flex-col gap-1 text-[13px] text-muted">
+            Au
+            <input
+              id="past-to"
+              type="date"
+              required
+              class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]"
+            />
+          </label>
+        </div>
+        <button id="past-submit" type="submit" class="h-11 rounded-xl bg-ink text-sm font-medium text-cream active:scale-[0.98]">
+          Ajouter les journées
+        </button>
+        <p class="text-[13px] leading-5 text-muted">
+          Du lundi au vendredi seulement. Un jour déjà compté n’est pas ajouté deux fois.
+        </p>
+      </form>
+    </section>
 
     <!-- Ajouter un mouvement -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-add">
@@ -219,6 +251,37 @@ import Base from "../layouts/Base.astro";
       render();
     });
 
+    // --- Journées déjà faites ---
+    const pastFrom = $<HTMLInputElement>("past-from");
+    const pastTo = $<HTMLInputElement>("past-to");
+    const pastDays = () => {
+      const from = pastFrom.value;
+      const to = pastTo.value;
+      if (!from || !to || from > to) return [];
+      const done = new Set(state.entries.filter(isDay).map((e) => e.date));
+      const days: string[] = [];
+      for (let d = from; d <= to; d = addDays(d, 1)) if (isWorkday(d) && !done.has(d)) days.push(d);
+      return days;
+    };
+    const renderPast = () => {
+      const n = pastDays().length;
+      const btn = $<HTMLButtonElement>("past-submit");
+      btn.disabled = !n;
+      btn.classList.toggle("opacity-40", !n);
+      btn.textContent = n
+        ? `Ajouter ${n} journée${n > 1 ? "s" : ""} · ${signed(n * state.dayAmount)}`
+        : "Rien à ajouter sur ces dates";
+    };
+    pastFrom.addEventListener("change", renderPast);
+    pastTo.addEventListener("change", renderPast);
+    $<HTMLFormElement>("past").addEventListener("submit", (e) => {
+      e.preventDefault();
+      for (const date of pastDays())
+        state.entries.push({ id: crypto.randomUUID(), date, amount: state.dayAmount, label: "Journée", kind: "day" });
+      save();
+      render();
+    });
+
     // --- Projection ---
     const pDate = $<HTMLInputElement>("p-date");
     const pRange = $<HTMLInputElement>("p-range");
@@ -348,6 +411,7 @@ import Base from "../layouts/Base.astro";
         });
         list.append(li);
       }
+      renderPast();
       renderProjection();
     }
 
@@ -365,6 +429,7 @@ import Base from "../layouts/Base.astro";
     setSign(-1);
     $<HTMLInputElement>("f-date").value = today();
     pDate.value = today();
+    pastFrom.value = pastTo.value = addDays(today(), -1);
     render();
   </script>
 </Base>
