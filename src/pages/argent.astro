@@ -154,6 +154,50 @@ import Base from "../layouts/Base.astro";
 
     </div>
 
+    <div data-panel="dettes" class="flex flex-col gap-7">
+    <!-- Dettes : un total à rembourser, payé par tranches jusqu'à zéro -->
+    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-debts">
+      <div class="flex flex-col gap-0.5">
+        <h2 id="t-debts" class="text-sm font-medium text-ink">Dettes</h2>
+        <p id="debts-summary" class="text-[13px] leading-5 text-muted"></p>
+      </div>
+      <ul id="debts-list" class="flex flex-col"></ul>
+      <details id="debt-details" class="text-sm">
+        <summary class="plain cursor-pointer text-body">+ Ajouter une dette</summary>
+        <form id="debt" class="mt-3 flex flex-col gap-3">
+          <input id="d-label" placeholder="À qui ? (ex. maman, SPF Finances)" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex flex-col gap-1 text-[13px] text-muted">
+              Je dois au total
+              <input id="d-total" inputmode="decimal" placeholder="€" required class="min-w-0 h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            </label>
+            <label class="flex flex-col gap-1 text-[13px] text-muted">
+              Je paie à chaque fois
+              <input id="d-amount" inputmode="decimal" placeholder="€" required class="min-w-0 h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex flex-col gap-1 text-[13px] text-muted">
+              Revient
+              <select id="d-every" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]">
+                <option value="month">Chaque mois</option>
+                <option value="week">Chaque semaine</option>
+                <option value="2weeks">Toutes les 2 semaines</option>
+              </select>
+            </label>
+            <label class="flex flex-col gap-1 text-[13px] text-muted">
+              Prochain paiement le
+              <input id="d-first" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            </label>
+          </div>
+          <button type="submit" class="h-11 rounded-xl bg-ink text-sm font-medium text-cream active:scale-[0.98]">
+            Ajouter la dette
+          </button>
+        </form>
+      </details>
+    </section>
+    </div>
+
     <div data-panel="historique" class="flex flex-col gap-7">
     <!-- Mouvements -->
     <section class="flex flex-col gap-3" aria-labelledby="t-list">
@@ -199,7 +243,7 @@ import Base from "../layouts/Base.astro";
     class="fixed inset-x-0 bottom-0 z-10 border-t border-hairline bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     aria-label="Sections"
   >
-    <div class="mx-auto grid max-w-[520px] grid-cols-4">
+    <div class="mx-auto grid max-w-[520px] grid-cols-5">
       <button type="button" data-tab="accueil" class="tab">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Accueil
@@ -211,6 +255,10 @@ import Base from "../layouts/Base.astro";
       <button type="button" data-tab="recurrents" class="tab">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
         Récurrents
+      </button>
+      <button type="button" data-tab="dettes" class="tab">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 12h5"/><path d="M16 9.5a4 4 0 1 0 0 5.2"/></svg>
+        Dettes
       </button>
       <button type="button" data-tab="historique" class="tab">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></svg>
@@ -259,7 +307,8 @@ import Base from "../layouts/Base.astro";
     type Entry = { id: string; date: string; amount: number; label: string; kind?: "day" };
     type Every = "month" | "week" | "2weeks";
     type Recurring = { id: string; first: string; every: Every; amount: number; label: string };
-    type State = { entries: Entry[]; recurring: Recurring[]; dayAmount: number; workdays: boolean };
+    type Debt = { id: string; label: string; total: number; amount: number; every: Every; first: string };
+    type State = { entries: Entry[]; recurring: Recurring[]; debts: Debt[]; dayAmount: number; workdays: boolean };
 
     const KEY = "argent:v1";
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -283,15 +332,21 @@ import Base from "../layouts/Base.astro";
     const fmt = (n: number) => money.format(n).replace(",00", "");
     const signed = (n: number) => (n > 0 ? "+" : "") + fmt(n);
     const longDate = (s: string) =>
-      parse(s).toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
+      parse(s).toLocaleDateString("fr-BE", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        // L'année seulement quand ce n'est pas celle en cours.
+        year: s.slice(0, 4) === today().slice(0, 4) ? undefined : "numeric",
+      });
     const toNumber = (v: string) => Number(v.replace(",", ".").replace(/[^\d.-]/g, ""));
 
     function load(): State {
       try {
         const s = JSON.parse(localStorage.getItem(KEY) || "");
-        if (s && Array.isArray(s.entries)) return { recurring: [], dayAmount: 100, workdays: true, ...s };
+        if (s && Array.isArray(s.entries)) return { recurring: [], debts: [], dayAmount: 100, workdays: true, ...s };
       } catch {}
-      return { entries: [], recurring: [], dayAmount: 100, workdays: true };
+      return { entries: [], recurring: [], debts: [], dayAmount: 100, workdays: true };
     }
     let state = load();
     const save = () => {
@@ -306,7 +361,7 @@ import Base from "../layouts/Base.astro";
     const isWorkday = (date: string) => parse(date).getDay() % 6 !== 0;
 
     // Dates d'un paiement récurrent jusqu'à « to » incluse. Au mois, le jour est gardé (le 31 tombe le 30 ou le 28).
-    const nthDate = (r: Recurring, n: number) => {
+    const nthDate = (r: { first: string; every: Every }, n: number) => {
       if (r.every !== "month") return addDays(r.first, n * (r.every === "week" ? 7 : 14));
       const f = parse(r.first);
       const last = new Date(f.getFullYear(), f.getMonth() + n + 1, 0).getDate();
@@ -320,11 +375,33 @@ import Base from "../layouts/Base.astro";
     const recurringBetween = (from: string, to: string) =>
       state.recurring.reduce((sum, r) => sum + occurrences(r, to).filter((d) => d > from).length * r.amount, 0);
 
+    // Paiements d'une dette jusqu'à « to » : la dernière tranche ne prend que ce qui reste.
+    const cents = (n: number) => Math.round(n * 100) / 100;
+    const debtPayments = (d: Debt, to = "9999-12-31") => {
+      const pays: { date: string; amount: number }[] = [];
+      let left = d.total;
+      for (let n = 0; left > 0.004 && n < 1000; n++) {
+        const date = nthDate(d, n);
+        if (date > to) break;
+        const amount = cents(Math.min(d.amount, left));
+        pays.push({ date, amount });
+        left = cents(left - amount);
+      }
+      return pays;
+    };
+    const debtLeft = (d: Debt, date: string) =>
+      cents(d.total - debtPayments(d, date).reduce((s, x) => s + x.amount, 0));
+    const debtsBetween = (from: string, to: string) =>
+      -state.debts.reduce(
+        (sum, d) => sum + debtPayments(d, to).filter((x) => x.date > from).reduce((s, x) => s + x.amount, 0),
+        0,
+      );
+
     // Argent en poche à une date : les journées ne comptent qu'une fois payées.
     const balanceAt = (date: string) =>
       state.entries
         .filter((e) => (isDay(e) ? payday(e.date) : e.date) <= date)
-        .reduce((sum, e) => sum + e.amount, 0) + recurringBetween("", date);
+        .reduce((sum, e) => sum + e.amount, 0) + recurringBetween("", date) + debtsBetween("", date);
     // Journées faites mais pas encore payées à cette date.
     const pendingAt = (date: string) =>
       state.entries.filter((e) => isDay(e) && e.date <= date && payday(e.date) > date);
@@ -438,12 +515,106 @@ import Base from "../layouts/Base.astro";
       render();
     });
 
-    const everyLabel = (r: Recurring) =>
+    const everyLabel = (r: { first: string; every: Every }) =>
       r.every === "week"
         ? `chaque ${parse(r.first).toLocaleDateString("fr-BE", { weekday: "long" })}`
         : r.every === "2weeks"
           ? "toutes les 2 semaines"
           : `chaque mois le ${parse(r.first).getDate()}`;
+
+    $<HTMLFormElement>("debt").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const total = Math.abs(toNumber($<HTMLInputElement>("d-total").value));
+      const amount = Math.abs(toNumber($<HTMLInputElement>("d-amount").value));
+      if (!total || !amount) return;
+      state.debts.push({
+        id: crypto.randomUUID(),
+        label: $<HTMLInputElement>("d-label").value.trim(),
+        total,
+        amount,
+        every: $<HTMLSelectElement>("d-every").value as Every,
+        first: $<HTMLInputElement>("d-first").value || today(),
+      });
+      save();
+      for (const id of ["d-label", "d-total", "d-amount"]) $<HTMLInputElement>(id).value = "";
+      ($("debt-details") as HTMLDetailsElement).open = false;
+      render();
+    });
+
+    function renderDebts() {
+      const t = today();
+      const list = $("debts-list");
+      list.replaceChildren();
+      let totalLeft = 0;
+      let lastEnd = "";
+      for (const d of state.debts) {
+        const left = debtLeft(d, t);
+        const pays = debtPayments(d);
+        const end = pays.at(-1)?.date ?? d.first;
+        const next = pays.find((x) => x.date > t);
+        totalLeft += left;
+        if (left > 0 && end > lastEnd) lastEnd = end;
+        const done = d.total - left;
+        const li = document.createElement("li");
+        li.className = "flex flex-col gap-2 border-b border-hairline py-3";
+        li.innerHTML = `
+          <div class="flex items-center gap-3">
+            <p class="min-w-0 flex-1 truncate text-[15px] text-ink"></p>
+            <button type="button" data-amount class="h-9 text-[15px] font-medium tabular-nums text-[#b4234a] underline decoration-hairline decoration-dotted underline-offset-4" aria-label="Corriger le paiement"></button>
+            <button type="button" data-del class="-mr-2 size-9 rounded-lg text-muted active:bg-bg" aria-label="Supprimer">✕</button>
+          </div>
+          <div class="h-1.5 overflow-hidden rounded-full bg-bg"><div class="h-full rounded-full bg-ink"></div></div>
+          <p class="text-[13px] leading-5 text-muted">
+            Reste <span data-left class="font-medium text-ink"></span>
+            <button type="button" data-total class="underline decoration-hairline decoration-dotted underline-offset-4" aria-label="Corriger le total"></button>
+          </p>
+          <p data-when class="text-[13px] leading-5 text-muted"></p>`;
+        li.querySelector("p")!.textContent = d.label || "Dette";
+        const pay = li.querySelector<HTMLButtonElement>("[data-amount]")!;
+        pay.textContent = signed(-d.amount);
+        pay.addEventListener("click", () =>
+          editAmount(pay, {
+            get amount() {
+              return d.amount;
+            },
+            set amount(v) {
+              d.amount = v;
+            },
+          }),
+        );
+        (li.querySelector(".bg-ink") as HTMLElement).style.width = `${Math.min(100, (done / d.total) * 100)}%`;
+        li.querySelector("[data-left]")!.textContent = fmt(left);
+        const tot = li.querySelector<HTMLButtonElement>("[data-total]")!;
+        tot.textContent = `sur ${fmt(d.total)}`;
+        tot.addEventListener("click", () =>
+          editAmount(tot, {
+            get amount() {
+              return d.total;
+            },
+            set amount(v) {
+              d.total = v;
+            },
+          }),
+        );
+        li.querySelector("[data-when]")!.textContent =
+          left > 0
+            ? `${everyLabel(d)} · prochain le ${longDate(next?.date ?? d.first)} · finie le ${longDate(end)}`
+            : "Remboursée ✓";
+        if (left <= 0) li.classList.add("opacity-60");
+        li.querySelector("[data-del]")!.addEventListener("click", () => {
+          if (!confirmDelete(li)) return;
+          state.debts = state.debts.filter((x) => x.id !== d.id);
+          save();
+          render();
+        });
+        list.append(li);
+      }
+      $("debts-summary").textContent = totalLeft
+        ? `${fmt(cents(totalLeft))} à rembourser · libre le ${longDate(lastEnd)}`
+        : state.debts.length
+          ? "Tout est remboursé"
+          : "";
+    }
 
     function renderRecurring() {
       const t = today();
@@ -517,7 +688,7 @@ import Base from "../layouts/Base.astro";
       try {
         const s = JSON.parse(await file.text());
         if (!Array.isArray(s.entries)) throw 0;
-        state = { recurring: [], dayAmount: 100, workdays: true, ...s };
+        state = { recurring: [], debts: [], dayAmount: 100, workdays: true, ...s };
         save();
         render();
       } catch {
@@ -550,6 +721,8 @@ import Base from "../layouts/Base.astro";
       if (planned) parts.push(`prévus ${signed(planned)}`);
       const rec = recurringBetween(t, target);
       if (rec) parts.push(`récurrents ${signed(rec)}`);
+      const debts = debtsBetween(t, target);
+      if (debts) parts.push(`dettes ${signed(debts)}`);
       if (later) parts.push(`puis ${signed(later)} déjà gagnés, payés plus tard`);
       $("p-detail").textContent = parts.join(" · ");
     }
@@ -587,6 +760,7 @@ import Base from "../layouts/Base.astro";
       $("recent-empty").classList.toggle("hidden", recent.length > 0);
       renderPast();
       renderRecurring();
+      renderDebts();
       renderProjection();
     }
 
@@ -704,6 +878,7 @@ import Base from "../layouts/Base.astro";
     setSign(-1);
     setRsign(-1);
     $<HTMLInputElement>("r-first").value = today();
+    $<HTMLInputElement>("d-first").value = today();
     $<HTMLInputElement>("f-date").value = today();
     pDate.value = today();
     pastFrom.value = pastTo.value = addDays(today(), -1);
