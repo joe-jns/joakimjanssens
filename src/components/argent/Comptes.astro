@@ -2,33 +2,35 @@
 // Extraits de compte lus dans le navigateur : le PDF n'est jamais envoyé, les opérations restent sur l'appareil.
 ---
 
-<h2 class="font-display text-[32px] leading-[1.1] text-ink">Mes comptes</h2>
+<div class="flex flex-col gap-7 lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-x-6 lg:gap-y-1">
+  <h2 class="font-display text-[32px] leading-[1.1] text-ink">Mes comptes</h2>
   <label
-    class="flex h-14 cursor-pointer items-center justify-center rounded-2xl bg-ink text-base font-medium text-cream active:scale-[0.98]"
+    class="flex h-14 cursor-pointer items-center justify-center rounded-2xl bg-ink text-base font-medium text-cream active:scale-[0.98] lg:h-11 lg:px-6 lg:text-sm"
   >
     Importer un extrait (PDF)
     <input id="c-file" type="file" accept="application/pdf,.pdf" multiple class="sr-only" />
   </label>
-  <p id="c-import-msg" class="-mt-5 text-center text-[13px] leading-5 text-muted">
+  <p id="c-import-msg" class="-mt-5 text-center text-[13px] leading-5 text-muted lg:col-span-2 lg:mt-0 lg:text-right">
     Revolut pour l’instant. Le PDF est lu ici, il n’est envoyé nulle part.
   </p>
+</div>
 
-  <div id="c-dash" class="flex flex-col gap-7" hidden>
+  <div id="c-dash" class="flex flex-col gap-7 lg:grid lg:items-start lg:gap-x-10 lg:grid-cols-2" hidden>
     <!-- Mois affiché -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 lg:col-span-2 lg:max-w-sm">
       <button id="c-prev" type="button" class="size-10 rounded-xl text-lg text-ink ring-hairline" aria-label="Mois précédent">‹</button>
       <p id="c-month" class="flex-1 text-center text-[15px] font-medium text-ink first-letter:uppercase"></p>
       <button id="c-next" type="button" class="size-10 rounded-xl text-lg text-ink ring-hairline" aria-label="Mois suivant">›</button>
     </div>
 
     <!-- Soldes en fin de mois -->
-    <section class="flex flex-col gap-2" aria-labelledby="c-t-acc">
+    <section class="flex flex-col gap-2 lg:col-start-1 lg:row-start-2" aria-labelledby="c-t-acc">
       <h2 id="c-t-acc" class="text-sm font-medium text-ink">Soldes à la fin du mois</h2>
       <ul id="c-accounts" class="grid grid-cols-2 gap-2"></ul>
     </section>
 
     <!-- Entrées / sorties -->
-    <section class="grid grid-cols-3 gap-2" aria-label="Résumé du mois">
+    <section class="grid grid-cols-3 gap-2 lg:col-start-2 lg:row-start-2 lg:self-end" aria-label="Résumé du mois">
       <div class="flex flex-col gap-1 rounded-2xl bg-surface p-3">
         <p class="text-[13px] text-muted">Rentré</p>
         <p id="c-in" class="text-[17px] font-medium tabular-nums text-ink"></p>
@@ -41,11 +43,11 @@
         <p class="text-[13px] text-muted">Reste</p>
         <p id="c-net" class="text-[17px] font-medium tabular-nums text-ink"></p>
       </div>
+      <p class="col-span-3 text-[13px] leading-5 text-muted">Sans les virements entre tes propres comptes et l’épargne.</p>
     </section>
-    <p class="-mt-5 text-[13px] leading-5 text-muted">Sans les virements entre tes propres comptes et l’épargne.</p>
 
     <!-- Où part l'argent -->
-    <section class="flex flex-col gap-3" aria-labelledby="c-t-cats">
+    <section class="flex flex-col gap-3 lg:col-start-1" aria-labelledby="c-t-cats">
       <div class="flex items-baseline justify-between gap-3">
         <h2 id="c-t-cats" class="text-sm font-medium text-ink">Où part l’argent</h2>
         <p class="text-[13px] text-muted">Touche pour filtrer</p>
@@ -54,7 +56,7 @@
     </section>
 
     <!-- Jour par jour -->
-    <section class="flex flex-col gap-2" aria-labelledby="c-t-days">
+    <section class="flex flex-col gap-2 lg:col-start-2 lg:row-span-2" aria-labelledby="c-t-days">
       <div class="flex items-baseline justify-between gap-3">
         <h2 id="c-t-days" class="text-sm font-medium text-ink">Dépenses jour par jour</h2>
         <p id="c-day-tip" class="text-[13px] tabular-nums text-muted"></p>
@@ -64,7 +66,7 @@
     </section>
 
     <!-- Opérations -->
-    <section class="flex flex-col gap-1" aria-labelledby="c-t-tx">
+    <section class="flex flex-col gap-1 lg:col-span-2" aria-labelledby="c-t-tx">
       <div class="flex items-baseline justify-between gap-3">
         <h2 id="c-t-tx" class="text-sm font-medium text-ink">Opérations</h2>
         <button id="c-filter" type="button" class="hidden h-8 rounded-full bg-ink px-3 text-[13px] font-medium text-cream"></button>
@@ -72,7 +74,7 @@
       <ul id="c-tx" class="flex flex-col"></ul>
     </section>
 
-    <details class="rounded-2xl bg-surface p-4 text-sm">
+    <details class="rounded-2xl bg-surface p-4 text-sm lg:col-span-2 lg:max-w-md">
       <summary class="cursor-pointer font-medium text-ink">Réglages</summary>
       <div class="mt-4 flex flex-col gap-3">
         <p class="text-[13px] leading-5 text-muted">
@@ -388,11 +390,13 @@
           bar.className = v ? "block w-full rounded-t-[3px] bg-ink" : "block h-[2px] w-full bg-hairline";
           if (v) bar.style.height = `${Math.max(3, (v / top) * 100)}%`;
           b.append(bar);
-          b.addEventListener("click", () => {
+          const show = () => {
             $("c-days").querySelectorAll(".bg-accent").forEach((x) => x.classList.replace("bg-accent", "bg-ink"));
             if (v) bar.classList.replace("bg-ink", "bg-accent");
             tip.textContent = `${shortDate(`${month}-${String(i + 1).padStart(2, "0")}`)} · ${fmt(v)}`;
-          });
+          };
+          b.addEventListener("click", show);
+          b.addEventListener("mouseenter", show); // sur PC, survoler suffit
           return b;
         }),
       );

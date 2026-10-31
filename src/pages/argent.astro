@@ -12,17 +12,17 @@ import Sync from "../components/argent/Sync.astro";
     <meta name="apple-mobile-web-app-title" content="Argent" />
   </Fragment>
 
-  <main class="mx-auto flex w-full max-w-[520px] flex-col gap-7 px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-body">
+  <main class="mx-auto flex w-full max-w-[520px] flex-col gap-7 px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-body lg:max-w-[1120px] lg:px-10 lg:pt-28 lg:pb-16">
     <header class="flex flex-col gap-1">
       <p class="text-[13px] leading-5 text-muted">Aujourd’hui, <span id="today-label"></span></p>
       <p class="font-display text-[56px] leading-[1.05] text-ink" id="balance">0 €</p>
       <p class="text-[13px] leading-5 text-muted" id="balance-note"></p>
     </header>
 
-    <div data-panel="accueil" class="flex flex-col gap-7">
+    <div data-panel="accueil" class="flex flex-col gap-7 lg:grid lg:items-start lg:gap-x-10 lg:grid-cols-2">
 
     <!-- Journées : comptées toutes seules, lun–ven -->
-    <section class="flex flex-col gap-2 rounded-2xl bg-surface p-4">
+    <section class="flex flex-col gap-2 rounded-2xl bg-surface p-4 lg:col-start-1">
       <div class="flex items-center gap-3">
         <p id="day-status" class="min-w-0 flex-1 text-[15px] leading-6 text-ink"></p>
         <button id="day-toggle" type="button" class="h-9 shrink-0 rounded-xl bg-bg px-3 text-[13px] font-medium text-ink ring-hairline active:scale-[0.98]"></button>
@@ -52,7 +52,7 @@ import Sync from "../components/argent/Sync.astro";
     </section>
 
     <!-- Ajouter un mouvement -->
-    <details id="add-details" class="group rounded-2xl ring-hairline open:bg-surface open:ring-0">
+    <details id="add-details" class="group rounded-2xl lg:col-start-1 ring-hairline open:bg-surface open:ring-0">
       <summary class="plain flex h-12 cursor-pointer items-center justify-center text-[15px] font-medium text-ink group-open:hidden">
         + Ajouter une dépense ou une rentrée
       </summary>
@@ -94,7 +94,7 @@ import Sync from "../components/argent/Sync.astro";
     </details>
 
     <!-- Projection -->
-    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-proj">
+    <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4 lg:sticky lg:top-28 lg:col-start-2 lg:row-span-3 lg:row-start-1" aria-labelledby="t-proj">
       <h2 id="t-proj" class="text-sm font-medium text-ink">Combien j’aurai le…</h2>
       <input id="p-date" type="date" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none" />
       <input id="p-range" type="range" min="0" max="120" value="0" class="w-full accent-[#111]" aria-label="Jours à partir d’aujourd’hui" />
@@ -107,7 +107,7 @@ import Sync from "../components/argent/Sync.astro";
     </section>
 
     <!-- Derniers mouvements -->
-    <section class="flex flex-col gap-1" aria-labelledby="t-recent">
+    <section class="flex flex-col gap-1 lg:col-start-1" aria-labelledby="t-recent">
       <div class="flex items-baseline justify-between gap-3">
         <h2 id="t-recent" class="text-sm font-medium text-ink">Derniers mouvements</h2>
         <button type="button" data-goto="historique" class="text-[13px] text-muted underline decoration-hairline underline-offset-4">
@@ -120,7 +120,7 @@ import Sync from "../components/argent/Sync.astro";
     </div>
 
 
-    <div data-panel="fixes" class="flex flex-col gap-7">
+    <div data-panel="fixes" class="flex flex-col gap-7 lg:grid lg:items-start lg:gap-x-10 lg:grid-cols-2">
     <!-- Paiements récurrents -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-rec">
       <h2 id="t-rec" class="text-sm font-medium text-ink">Paiements récurrents</h2>
@@ -206,7 +206,7 @@ import Sync from "../components/argent/Sync.astro";
       <Comptes />
     </div>
 
-    <div data-panel="historique" class="flex flex-col gap-7">
+    <div data-panel="historique" class="flex flex-col gap-7 lg:grid lg:items-start lg:gap-x-10 lg:grid-cols-[1fr_380px]">
     <!-- Mouvements -->
     <section class="flex flex-col gap-3" aria-labelledby="t-list">
       <div class="flex items-baseline justify-between gap-3">
@@ -220,7 +220,7 @@ import Sync from "../components/argent/Sync.astro";
     </section>
 
     <!-- Réglages -->
-    <details class="rounded-2xl bg-surface p-4 text-sm">
+    <details class="rounded-2xl bg-surface p-4 text-sm lg:sticky lg:top-28">
       <summary class="cursor-pointer font-medium text-ink">Réglages, sauvegarde et synchro</summary>
       <div class="mt-4 flex flex-col gap-4">
         <label class="flex items-center justify-between gap-3">
@@ -259,10 +259,10 @@ import Sync from "../components/argent/Sync.astro";
 
   <!-- Onglets collés en bas de l'écran -->
   <nav
-    class="fixed inset-x-0 bottom-0 z-10 border-t border-hairline bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+    class="fixed inset-x-0 bottom-0 z-10 border-t border-hairline lg:top-0 lg:bottom-auto lg:border-t-0 lg:border-b lg:pb-0 bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     aria-label="Sections"
   >
-    <div class="mx-auto grid max-w-[520px] grid-cols-4">
+    <div class="mx-auto grid max-w-[520px] grid-cols-4 lg:flex lg:h-16 lg:max-w-[1120px] lg:items-center lg:gap-1 lg:px-10">
       <button type="button" data-tab="accueil" class="tab">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Accueil
@@ -305,6 +305,26 @@ import Sync from "../components/argent/Sync.astro";
     }
     .tab[aria-current="page"] {
       color: var(--color-ink);
+    }
+    @media (min-width: 64rem) {
+      .tab {
+        flex-direction: row;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 14px;
+        line-height: 20px;
+      }
+      .tab svg {
+        width: 18px;
+        height: 18px;
+      }
+      .tab:hover {
+        color: var(--color-ink);
+      }
+      .tab[aria-current="page"] {
+        background: var(--color-surface);
+      }
     }
     summary.plain {
       list-style: none;
