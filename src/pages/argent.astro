@@ -1,6 +1,7 @@
 ---
 import Base from "../layouts/Base.astro";
 import Comptes from "../components/argent/Comptes.astro";
+import Sync from "../components/argent/Sync.astro";
 // Outil perso : rien n'est envoyé au serveur, tout reste dans le navigateur du téléphone (localStorage).
 ---
 
@@ -220,7 +221,7 @@ import Comptes from "../components/argent/Comptes.astro";
 
     <!-- Réglages -->
     <details class="rounded-2xl bg-surface p-4 text-sm">
-      <summary class="cursor-pointer font-medium text-ink">Réglages et sauvegarde</summary>
+      <summary class="cursor-pointer font-medium text-ink">Réglages, sauvegarde et synchro</summary>
       <div class="mt-4 flex flex-col gap-4">
         <label class="flex items-center justify-between gap-3">
           Montant d’une journée
@@ -241,7 +242,7 @@ import Comptes from "../components/argent/Comptes.astro";
           </label>
         </div>
         <p class="text-[13px] leading-5 text-muted">
-          Les données restent dans ce navigateur, sur ce téléphone. Exporte de temps en temps pour ne rien perdre.
+          Exporter garde une copie de secours dans un fichier.
         </p>
         <div class="grid grid-cols-2 gap-2">
           <button id="export" type="button" class="h-10 rounded-xl bg-bg ring-hairline">Exporter</button>
@@ -250,6 +251,7 @@ import Comptes from "../components/argent/Comptes.astro";
             <input id="import" type="file" accept="application/json" class="hidden" />
           </label>
         </div>
+        <Sync />
       </div>
     </details>
     </div>
@@ -375,6 +377,7 @@ import Comptes from "../components/argent/Comptes.astro";
       try {
         localStorage.setItem(KEY, JSON.stringify(state));
       } catch {}
+      window.dispatchEvent(new Event("argent:saved"));
     };
 
     // Paie chaque jeudi pour la semaine d'avant : un jour travaillé est payé le jeudi de la semaine suivante.

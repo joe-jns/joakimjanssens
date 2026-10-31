@@ -114,6 +114,7 @@
       try {
         localStorage.setItem(KEY, JSON.stringify(store));
       } catch {}
+      window.dispatchEvent(new Event("argent:saved"));
     };
 
     const money = new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR" });

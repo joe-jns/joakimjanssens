@@ -1,0 +1,245 @@
+---
+// Synchro PC ↔ téléphone : tout est chiffré ici avec le code, le serveur ne garde qu'un bloc illisible.
+---
+
+<div class="flex flex-col gap-3 border-t border-hairline pt-4">
+  <p class="font-medium text-ink">Synchro avec un autre appareil</p>
+  <p id="sync-status" class="text-[13px] leading-5 text-muted"></p>
+
+  <div id="sync-off" class="flex flex-col gap-2">
+    <button id="sync-new" type="button" class="h-10 rounded-xl bg-ink font-medium text-cream active:scale-[0.98]">
+      Activer la synchro sur cet appareil
+    </button>
+    <form id="sync-join" class="grid grid-cols-[1fr_auto] gap-2">
+      <input
+        id="sync-code"
+        placeholder="J’ai déjà un code"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        class="h-10 min-w-0 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none"
+      />
+      <button type="submit" class="h-10 rounded-xl bg-bg px-4 ring-hairline">Relier</button>
+    </form>
+  </div>
+
+  <div id="sync-on" class="flex flex-col gap-2" hidden>
+    <p class="text-[13px] leading-5 text-muted">
+      Ton code (à garder pour toi, il ouvre tes données) :
+      <span id="sync-show" class="font-medium tabular-nums text-ink"></span>
+    </p>
+    <div class="grid grid-cols-2 gap-2">
+      <button id="sync-copy" type="button" class="h-10 rounded-xl bg-bg ring-hairline">Copier le lien</button>
+      <button id="sync-stop" type="button" class="h-10 rounded-xl bg-bg ring-hairline">Arrêter ici</button>
+    </div>
+    <p class="text-[13px] leading-5 text-muted">
+      Ouvre ce lien sur l’autre appareil (envoie-le-toi par message) : il récupère tout et reste à jour tout seul.
+    </p>
+  </div>
+</div>
+
+<script>
+  const API = "/argent-sync.php";
+  const KEYS = ["argent:v1", "argent:comptes:v1"]; // ce qui voyage ; l'onglet ouvert reste propre à l'appareil
+  type Cfg = { code: string; synced: number };
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const enc = new TextEncoder();
+
+  function read<T>(k: string, d: T): T {
+    try {
+      return JSON.parse(localStorage.getItem(k) || "") ?? d;
+    } catch {
+      return d;
+    }
+  }
+  const write = (k: string, v: unknown) => {
+    try {
+      if (v === null) localStorage.removeItem(k);
+      else localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
+    } catch {}
+  };
+  let cfg = read<Cfg | null>("argent:sync", null);
+  let dirty = read<boolean>("argent:sync-dirty", false);
+  const setDirty = (v: boolean) => write("argent:sync-dirty", (dirty = v));
+  const setCfg = (c: Cfg | null) => write("argent:sync", (cfg = c));
+
+  // --- Code, identifiant et clé de chiffrement ---
+  const ALPHA = "abcdefghjkmnpqrstuvwxyz23456789";
+  const newCode = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(20)), (b) => ALPHA[b % ALPHA.length])
+      .join("")
+      .replace(/(.{4})(?!$)/g, "$1-");
+  const clean = (c: string) => c.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/(.{4})(?!$)/g, "$1-");
+  const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+  const cache = new Map<string, { id: string; key: CryptoKey }>();
+  async function secret(code: string) {
+    if (cache.has(code)) return cache.get(code)!;
+    const id = hex(await crypto.subtle.digest("SHA-256", enc.encode(`argent-id:${code}`)));
+    const base = await crypto.subtle.importKey("raw", enc.encode(code), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode("argent-sync-v1"), iterations: 200000, hash: "SHA-256" },
+      base,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const s = { id, key };
+    cache.set(code, s);
+    return s;
+  }
+  async function seal(code: string, text: string) {
+    const { key } = await secret(code);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(text)));
+    const out = new Uint8Array(12 + ct.length);
+    out.set(iv);
+    out.set(ct, 12);
+    // btoa par morceaux : un gros bloc ferait déborder la pile.
+    let s = "";
+    for (let i = 0; i < out.length; i += 0x8000) s += String.fromCharCode(...out.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  async function open(code: string, data: string) {
+    const { key } = await secret(code);
+    const raw = unb64(data);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.subarray(0, 12) }, key, raw.subarray(12));
+    return new TextDecoder().decode(pt);
+  }
+
+  // --- Échanges avec le serveur ---
+  const snapshot = () => JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, localStorage.getItem(k)])));
+  function apply(text: string) {
+    const all = JSON.parse(text) as Record<string, string | null>;
+    for (const k of KEYS) write(k, all[k] ?? null);
+  }
+  const url = async (code: string) => `${API}?id=${(await secret(code)).id}`;
+  let busy = false;
+  let timer = 0;
+  let lastOk = 0;
+
+  async function fetchRemote(code: string) {
+    const r = await fetch(await url(code), { cache: "no-store" });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(String(r.status));
+    return (await r.json()) as { v: number; data: string };
+  }
+
+  // Les changements de l'autre appareil passent avant : on les prend, puis on recharge la page.
+  async function takeRemote(remote: { v: number; data: string }) {
+    apply(await open(cfg!.code, remote.data));
+    setCfg({ ...cfg!, synced: remote.v });
+    setDirty(false);
+    location.reload();
+  }
+
+  async function sync() {
+    if (!cfg || busy || !navigator.onLine) return;
+    busy = true;
+    try {
+      const remote = await fetchRemote(cfg.code);
+      if (remote && remote.v !== cfg.synced) return await takeRemote(remote);
+      if (dirty || !remote) await push();
+      lastOk = Date.now();
+      status();
+    } catch (e) {
+      console.error(e);
+      status(e instanceof DOMException ? "Code incorrect pour ces données." : "Synchro impossible pour l’instant, nouvel essai plus tard.");
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function push() {
+    const v = Math.max(Date.now(), cfg!.synced + 1);
+    const data = await seal(cfg!.code, snapshot());
+    const r = await fetch(await url(cfg!.code), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ v, base: cfg!.synced, data }),
+    });
+    if (r.status === 409) return takeRemote(await r.json());
+    if (!r.ok) throw new Error(String(r.status));
+    setCfg({ ...cfg!, synced: v });
+    setDirty(false);
+  }
+
+  // Chaque enregistrement de la page marque l'appareil « à envoyer », puis envoie un peu après.
+  window.addEventListener("argent:saved", () => {
+    if (!cfg) return;
+    setDirty(true);
+    clearTimeout(timer);
+    timer = window.setTimeout(sync, 1500);
+  });
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && sync());
+  window.addEventListener("online", sync);
+  setInterval(() => document.visibilityState === "visible" && sync(), 60000);
+
+  // --- Interface ---
+  function status(msg?: string) {
+    $("sync-off").hidden = !!cfg;
+    $("sync-on").hidden = !cfg;
+    $("sync-show").textContent = cfg?.code ?? "";
+    $("sync-status").textContent =
+      msg ??
+      (cfg
+        ? lastOk
+          ? `Active · à jour à ${new Date(lastOk).toLocaleTimeString("fr-BE", { hour: "2-digit", minute: "2-digit" })}`
+          : "Active"
+        : "Les données restent seulement sur cet appareil.");
+  }
+
+  $("sync-new").addEventListener("click", async () => {
+    setCfg({ code: newCode(), synced: 0 });
+    setDirty(true);
+    status("Envoi…");
+    await sync();
+  });
+
+  async function join(raw: string) {
+    const code = clean(raw);
+    if (code.length < 24) return status("Ce code est trop court.");
+    status("Recherche…");
+    try {
+      const remote = await fetchRemote(code);
+      if (!remote) return status("Rien trouvé pour ce code. Vérifie-le sur l’autre appareil.");
+      await open(code, remote.data); // vérifie le code avant de toucher aux données d'ici
+      setCfg({ code, synced: 0 });
+      await takeRemote(remote);
+    } catch (e) {
+      status(e instanceof DOMException ? "Code incorrect." : "Pas de connexion, réessaie.");
+    }
+  }
+  $<HTMLFormElement>("sync-join").addEventListener("submit", (e) => {
+    e.preventDefault();
+    join($<HTMLInputElement>("sync-code").value);
+  });
+
+  $("sync-copy").addEventListener("click", async () => {
+    const link = `${location.origin}/argent/#sync=${cfg!.code}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      status("Lien copié. Colle-le sur l’autre appareil.");
+    } catch {
+      status(link);
+    }
+  });
+  $("sync-stop").addEventListener("click", () => {
+    setCfg(null);
+    setDirty(false);
+    status("Synchro arrêtée sur cet appareil. Les données d’ici restent.");
+  });
+
+  // Lien « …/argent/#sync=code » ouvert sur l'autre appareil : on relie tout de suite.
+  function fromLink() {
+    const code = /#sync=([a-z0-9-]+)/i.exec(location.hash)?.[1];
+    if (!code) return;
+    history.replaceState(null, "", location.pathname);
+    if (!cfg || cfg.code !== clean(code)) join(code);
+  }
+  window.addEventListener("hashchange", fromLink);
+  fromLink();
+  status();
+  sync();
+</script>
