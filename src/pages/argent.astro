@@ -19,37 +19,35 @@ import Base from "../layouts/Base.astro";
 
     <div data-panel="accueil" class="flex flex-col gap-7">
 
-    <button
-      id="day-done"
-      type="button"
-      class="flex h-14 items-center justify-center gap-2 rounded-2xl bg-ink text-base font-medium text-cream transition-[background-color,scale] duration-150 active:scale-[0.98]"
-    >
-      Journée finie <span id="day-amount" class="text-accent">+100 €</span>
-    </button>
-    <p id="day-hint" class="-mt-5 hidden text-center text-[13px] leading-5 text-muted"></p>
-
-    <!-- Journées oubliées : repliées, on en a rarement besoin -->
-    <details class="-mt-4 text-[13px] leading-5 text-muted">
-      <summary class="plain mx-auto w-fit cursor-pointer underline decoration-hairline underline-offset-4">
-        Ajouter des journées oubliées
-      </summary>
-      <form id="past" class="mt-3 flex flex-col gap-2 rounded-2xl p-3 ring-hairline">
-        <div class="grid grid-cols-2 gap-2">
-          <label class="flex flex-col gap-1">
-            Du
-            <input id="past-from" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
-          </label>
-          <label class="flex flex-col gap-1">
-            Au
-            <input id="past-to" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
-          </label>
-        </div>
-        <button id="past-submit" type="submit" class="h-10 rounded-xl bg-surface text-sm font-medium text-ink active:scale-[0.98]">
-          Ajouter les journées
-        </button>
-        <p>Du lundi au vendredi seulement. Un jour déjà compté n’est pas ajouté deux fois.</p>
-      </form>
-    </details>
+    <!-- Journées : comptées toutes seules, lun–ven -->
+    <section class="flex flex-col gap-2 rounded-2xl bg-surface p-4">
+      <div class="flex items-center gap-3">
+        <p id="day-status" class="min-w-0 flex-1 text-[15px] leading-6 text-ink"></p>
+        <button id="day-toggle" type="button" class="h-9 shrink-0 rounded-xl bg-bg px-3 text-[13px] font-medium text-ink ring-hairline active:scale-[0.98]"></button>
+      </div>
+      <p id="day-note" class="text-[13px] leading-5 text-muted"></p>
+      <details class="text-[13px] leading-5 text-muted">
+        <summary class="plain w-fit cursor-pointer underline decoration-hairline underline-offset-4">
+          Je n’ai pas travaillé plusieurs jours
+        </summary>
+        <form id="off" class="mt-3 flex flex-col gap-2">
+          <div class="grid grid-cols-2 gap-2">
+            <label class="flex flex-col gap-1">
+              Du
+              <input id="off-from" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            </label>
+            <label class="flex flex-col gap-1">
+              Au
+              <input id="off-to" type="date" required class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+            </label>
+          </div>
+          <button id="off-submit" type="submit" class="h-10 rounded-xl bg-bg text-sm font-medium text-ink ring-hairline active:scale-[0.98]">
+            Retirer ces jours
+          </button>
+          <p>Malade, congé, férié… Marche aussi pour des jours à venir.</p>
+        </form>
+      </details>
+    </section>
 
     <!-- Projection -->
     <section class="flex flex-col gap-3 rounded-2xl bg-surface p-4" aria-labelledby="t-proj">
@@ -223,6 +221,16 @@ import Base from "../layouts/Base.astro";
             class="h-10 w-28 rounded-xl bg-bg px-3 text-right text-base text-ink ring-hairline outline-none"
           />
         </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex flex-col gap-1 text-[13px] text-muted">
+            Je travaille depuis le
+            <input id="s-start" type="date" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+          </label>
+          <label class="flex flex-col gap-1 text-[13px] text-muted">
+            Jusqu’au (vide = en cours)
+            <input id="s-end" type="date" class="h-11 rounded-xl bg-bg px-3 text-base text-ink ring-hairline outline-none focus:shadow-[inset_0_0_0_1.5px_#111]" />
+          </label>
+        </div>
         <p class="text-[13px] leading-5 text-muted">
           Les données restent dans ce navigateur, sur ce téléphone. Exporte de temps en temps pour ne rien perdre.
         </p>
@@ -308,7 +316,16 @@ import Base from "../layouts/Base.astro";
     type Every = "month" | "week" | "2weeks";
     type Recurring = { id: string; first: string; every: Every; amount: number; label: string };
     type Debt = { id: string; label: string; total: number; amount: number; every: Every; first: string };
-    type State = { entries: Entry[]; recurring: Recurring[]; debts: Debt[]; dayAmount: number; workdays: boolean };
+    type State = {
+      entries: Entry[];
+      recurring: Recurring[];
+      debts: Debt[];
+      dayAmount: number;
+      workdays: boolean;
+      workStart?: string; // journées ajoutées toutes seules à partir de ce jour…
+      workEnd?: string; // …jusqu'à ce jour (vide = mission en cours)
+      skipped: string[]; // jours pas travaillés : jamais recréés
+    };
 
     const KEY = "argent:v1";
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -344,9 +361,9 @@ import Base from "../layouts/Base.astro";
     function load(): State {
       try {
         const s = JSON.parse(localStorage.getItem(KEY) || "");
-        if (s && Array.isArray(s.entries)) return { recurring: [], debts: [], dayAmount: 100, workdays: true, ...s };
+        if (s && Array.isArray(s.entries)) return { recurring: [], debts: [], dayAmount: 100, workdays: true, skipped: [], ...s };
       } catch {}
-      return { entries: [], recurring: [], debts: [], dayAmount: 100, workdays: true };
+      return { entries: [], recurring: [], debts: [], dayAmount: 100, workdays: true, skipped: [] };
     }
     let state = load();
     const save = () => {
@@ -406,13 +423,44 @@ import Base from "../layouts/Base.astro";
     const pendingAt = (date: string) =>
       state.entries.filter((e) => isDay(e) && e.date <= date && payday(e.date) > date);
 
-    // Journées à venir (lun–ven) jusqu'à la date : aujourd'hui compte tant que le bouton n'a pas été pressé.
+    // Un jour est travaillé s'il tombe lun–ven, dans la mission, et n'a pas été retiré.
+    const counts = (d: string) =>
+      isWorkday(d) &&
+      !!state.workStart &&
+      d >= state.workStart &&
+      (!state.workEnd || d <= state.workEnd) &&
+      !state.skipped.includes(d);
+
+    // Crée les journées manquantes jusqu'à aujourd'hui inclus, sans rien demander.
+    function syncDays() {
+      if (!state.workStart) {
+        // Première fois : on part de la plus ancienne journée déjà saisie, sinon d'aujourd'hui.
+        state.workStart = state.entries.filter(isDay).map((e) => e.date).sort()[0] ?? today();
+      }
+      const have = new Set(state.entries.filter(isDay).map((e) => e.date));
+      let added = false;
+      for (let d = state.workStart, t = today(); d <= t; d = addDays(d, 1))
+        if (counts(d) && !have.has(d)) {
+          state.entries.push({ id: crypto.randomUUID(), date: d, amount: state.dayAmount, label: "Journée", kind: "day" });
+          added = true;
+        }
+      if (added) save();
+    }
+
+    // Journées à venir jusqu'à la date (aujourd'hui est déjà compté).
     const futureDays = (target: string) => {
-      const t = today();
-      const doneToday = state.entries.some((e) => isDay(e) && e.date === t);
       const days: string[] = [];
-      for (let d = doneToday ? addDays(t, 1) : t; d <= target; d = addDays(d, 1)) if (isWorkday(d)) days.push(d);
+      for (let d = addDays(today(), 1); d <= target; d = addDays(d, 1)) if (counts(d)) days.push(d);
       return days;
+    };
+
+    // Retirer un jour : la journée disparaît et ne revient plus.
+    const skipDay = (d: string) => {
+      if (!state.skipped.includes(d)) state.skipped.push(d);
+      state.entries = state.entries.filter((e) => !(isDay(e) && e.date === d));
+    };
+    const unskipDay = (d: string) => {
+      state.skipped = state.skipped.filter((x) => x !== d);
     };
 
     // --- Formulaire ---
@@ -446,41 +494,41 @@ import Base from "../layouts/Base.astro";
       render();
     });
 
-    // --- Journée finie ---
-    $("day-done").addEventListener("click", () => {
-      state.entries.push({ id: crypto.randomUUID(), date: today(), amount: state.dayAmount, label: "Journée", kind: "day" });
+    // --- Journée d'aujourd'hui : retirer / remettre ---
+    $("day-toggle").addEventListener("click", () => {
+      const t = today();
+      if (state.skipped.includes(t)) unskipDay(t);
+      else skipDay(t);
       save();
+      syncDays();
       render();
     });
 
-    // --- Journées déjà faites ---
-    const pastFrom = $<HTMLInputElement>("past-from");
-    const pastTo = $<HTMLInputElement>("past-to");
-    const pastDays = () => {
-      const from = pastFrom.value;
-      const to = pastTo.value;
+    // --- Plusieurs jours pas travaillés ---
+    const offFrom = $<HTMLInputElement>("off-from");
+    const offTo = $<HTMLInputElement>("off-to");
+    const offDays = () => {
+      const from = offFrom.value;
+      const to = offTo.value;
       if (!from || !to || from > to) return [];
-      const done = new Set(state.entries.filter(isDay).map((e) => e.date));
       const days: string[] = [];
-      for (let d = from; d <= to; d = addDays(d, 1)) if (isWorkday(d) && !done.has(d)) days.push(d);
+      for (let d = from; d <= to; d = addDays(d, 1)) if (counts(d)) days.push(d);
       return days;
     };
-    const renderPast = () => {
-      const n = pastDays().length;
-      const btn = $<HTMLButtonElement>("past-submit");
+    const renderOff = () => {
+      const n = offDays().length;
+      const btn = $<HTMLButtonElement>("off-submit");
       btn.disabled = !n;
       btn.classList.toggle("opacity-40", !n);
-      btn.textContent = n
-        ? `Ajouter ${n} journée${n > 1 ? "s" : ""} · ${signed(n * state.dayAmount)}`
-        : "Rien à ajouter sur ces dates";
+      btn.textContent = n ? `Retirer ${n} jour${n > 1 ? "s" : ""} · ${signed(-n * state.dayAmount)}` : "Rien à retirer sur ces dates";
     };
-    pastFrom.addEventListener("change", renderPast);
-    pastTo.addEventListener("change", renderPast);
-    $<HTMLFormElement>("past").addEventListener("submit", (e) => {
+    offFrom.addEventListener("change", renderOff);
+    offTo.addEventListener("change", renderOff);
+    $<HTMLFormElement>("off").addEventListener("submit", (e) => {
       e.preventDefault();
-      for (const date of pastDays())
-        state.entries.push({ id: crypto.randomUUID(), date, amount: state.dayAmount, label: "Journée", kind: "day" });
+      for (const d of offDays()) skipDay(d);
       save();
+      ($<HTMLFormElement>("off").closest("details") as HTMLDetailsElement).open = false;
       render();
     });
 
@@ -674,6 +722,24 @@ import Base from "../layouts/Base.astro";
       save();
       render();
     });
+    $<HTMLInputElement>("s-start").addEventListener("change", (e) => {
+      const v = (e.target as HTMLInputElement).value;
+      if (!v) return render();
+      // Avancer le début retire les journées d'avant ; le reculer les ajoute.
+      state.entries = state.entries.filter((x) => !isDay(x) || x.date >= v);
+      state.workStart = v;
+      save();
+      syncDays();
+      render();
+    });
+    $<HTMLInputElement>("s-end").addEventListener("change", (e) => {
+      const v = (e.target as HTMLInputElement).value;
+      state.workEnd = v || undefined;
+      if (v) state.entries = state.entries.filter((x) => !isDay(x) || x.date <= v);
+      save();
+      syncDays();
+      render();
+    });
     $("export").addEventListener("click", () => {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
@@ -688,8 +754,9 @@ import Base from "../layouts/Base.astro";
       try {
         const s = JSON.parse(await file.text());
         if (!Array.isArray(s.entries)) throw 0;
-        state = { recurring: [], debts: [], dayAmount: 100, workdays: true, ...s };
+        state = { recurring: [], debts: [], dayAmount: 100, workdays: true, skipped: [], ...s };
         save();
+        syncDays();
         render();
       } catch {
         $("balance-note").textContent = "Fichier illisible, rien n’a été importé.";
@@ -739,14 +806,27 @@ import Base from "../layouts/Base.astro";
       $("balance-note").textContent = next
         ? `${signed(nextSum)} à recevoir le ${longDate(next)}` + (rest ? ` · puis ${signed(rest)}` : "")
         : "";
-      $("day-amount").textContent = signed(state.dayAmount);
       $<HTMLInputElement>("s-day").value = String(state.dayAmount);
+      $<HTMLInputElement>("s-start").value = state.workStart ?? "";
+      $<HTMLInputElement>("s-end").value = state.workEnd ?? "";
       $<HTMLInputElement>("p-workdays").checked = state.workdays;
 
-      const doneToday = state.entries.filter((e) => e.date === t && isDay(e)).length;
-      const hint = $("day-hint");
-      hint.classList.toggle("hidden", !doneToday);
-      hint.textContent = doneToday > 1 ? `Comptée ${doneToday} fois aujourd’hui.` : "Journée d’aujourd’hui comptée.";
+      const todayDay = state.entries.find((e) => e.date === t && isDay(e));
+      const toggle = $<HTMLButtonElement>("day-toggle");
+      const inMission = !!state.workStart && t >= state.workStart && (!state.workEnd || t <= state.workEnd);
+      toggle.hidden = !isWorkday(t) || !inMission;
+      if (todayDay) {
+        $("day-status").textContent = `Journée d’aujourd’hui comptée ${signed(todayDay.amount)}`;
+        toggle.textContent = "Pas travaillé";
+      } else if (state.skipped.includes(t)) {
+        $("day-status").textContent = "Aujourd’hui : pas travaillé";
+        toggle.textContent = "Remettre";
+      } else {
+        $("day-status").textContent = !inMission ? "Pas de mission en cours" : "Week-end, rien à compter";
+      }
+      $("day-note").textContent = inMission
+        ? `Chaque jour de semaine compte ${signed(state.dayAmount)} tout seul, payé le jeudi d’après.`
+        : "";
 
       // Plus récent d'abord ; à date égale, le dernier ajouté en premier.
       const sorted = state.entries
@@ -758,7 +838,7 @@ import Base from "../layouts/Base.astro";
       const recent = sorted.filter((e) => e.date <= t).slice(0, 5);
       $("recent").replaceChildren(...recent.map((e) => entryRow(e, t)));
       $("recent-empty").classList.toggle("hidden", recent.length > 0);
-      renderPast();
+      renderOff();
       renderRecurring();
       renderDebts();
       renderProjection();
@@ -788,6 +868,7 @@ import Base from "../layouts/Base.astro";
       amount.addEventListener("click", () => editAmount(amount, e));
       li.querySelector("[data-del]")!.addEventListener("click", () => {
         if (!confirmDelete(li)) return;
+        if (isDay(e)) skipDay(e.date);
         state.entries = state.entries.filter((x) => x.id !== e.id);
         save();
         render();
@@ -881,7 +962,15 @@ import Base from "../layouts/Base.astro";
     $<HTMLInputElement>("d-first").value = today();
     $<HTMLInputElement>("f-date").value = today();
     pDate.value = today();
-    pastFrom.value = pastTo.value = addDays(today(), -1);
+    offFrom.value = offTo.value = today();
+    syncDays();
     render();
+    // Page laissée ouverte : la journée du lendemain arrive toute seule.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        syncDays();
+        render();
+      }
+    });
   </script>
 </Base>
