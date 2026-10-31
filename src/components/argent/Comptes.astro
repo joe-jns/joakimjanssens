@@ -1,0 +1,456 @@
+---
+// Extraits de compte lus dans le navigateur : le PDF n'est jamais envoyé, les opérations restent sur l'appareil.
+---
+
+<h2 class="font-display text-[32px] leading-[1.1] text-ink">Mes comptes</h2>
+  <label
+    class="flex h-14 cursor-pointer items-center justify-center rounded-2xl bg-ink text-base font-medium text-cream active:scale-[0.98]"
+  >
+    Importer un extrait (PDF)
+    <input id="c-file" type="file" accept="application/pdf,.pdf" multiple class="sr-only" />
+  </label>
+  <p id="c-import-msg" class="-mt-5 text-center text-[13px] leading-5 text-muted">
+    Revolut pour l’instant. Le PDF est lu ici, il n’est envoyé nulle part.
+  </p>
+
+  <div id="c-dash" class="flex flex-col gap-7" hidden>
+    <!-- Mois affiché -->
+    <div class="flex items-center gap-2">
+      <button id="c-prev" type="button" class="size-10 rounded-xl text-lg text-ink ring-hairline" aria-label="Mois précédent">‹</button>
+      <p id="c-month" class="flex-1 text-center text-[15px] font-medium text-ink first-letter:uppercase"></p>
+      <button id="c-next" type="button" class="size-10 rounded-xl text-lg text-ink ring-hairline" aria-label="Mois suivant">›</button>
+    </div>
+
+    <!-- Soldes en fin de mois -->
+    <section class="flex flex-col gap-2" aria-labelledby="c-t-acc">
+      <h2 id="c-t-acc" class="text-sm font-medium text-ink">Soldes à la fin du mois</h2>
+      <ul id="c-accounts" class="grid grid-cols-2 gap-2"></ul>
+    </section>
+
+    <!-- Entrées / sorties -->
+    <section class="grid grid-cols-3 gap-2" aria-label="Résumé du mois">
+      <div class="flex flex-col gap-1 rounded-2xl bg-surface p-3">
+        <p class="text-[13px] text-muted">Rentré</p>
+        <p id="c-in" class="text-[17px] font-medium tabular-nums text-ink"></p>
+      </div>
+      <div class="flex flex-col gap-1 rounded-2xl bg-surface p-3">
+        <p class="text-[13px] text-muted">Dépensé</p>
+        <p id="c-out" class="text-[17px] font-medium tabular-nums text-ink"></p>
+      </div>
+      <div class="flex flex-col gap-1 rounded-2xl bg-surface p-3">
+        <p class="text-[13px] text-muted">Reste</p>
+        <p id="c-net" class="text-[17px] font-medium tabular-nums text-ink"></p>
+      </div>
+    </section>
+    <p class="-mt-5 text-[13px] leading-5 text-muted">Sans les virements entre tes propres comptes et l’épargne.</p>
+
+    <!-- Où part l'argent -->
+    <section class="flex flex-col gap-3" aria-labelledby="c-t-cats">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="c-t-cats" class="text-sm font-medium text-ink">Où part l’argent</h2>
+        <p class="text-[13px] text-muted">Touche pour filtrer</p>
+      </div>
+      <ul id="c-cats" class="flex flex-col gap-1"></ul>
+    </section>
+
+    <!-- Jour par jour -->
+    <section class="flex flex-col gap-2" aria-labelledby="c-t-days">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="c-t-days" class="text-sm font-medium text-ink">Dépenses jour par jour</h2>
+        <p id="c-day-tip" class="text-[13px] tabular-nums text-muted"></p>
+      </div>
+      <div id="c-days" class="flex h-28 items-end gap-[2px] border-b border-hairline"></div>
+      <div id="c-days-axis" class="flex justify-between text-[11px] tabular-nums text-muted"></div>
+    </section>
+
+    <!-- Opérations -->
+    <section class="flex flex-col gap-1" aria-labelledby="c-t-tx">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="c-t-tx" class="text-sm font-medium text-ink">Opérations</h2>
+        <button id="c-filter" type="button" class="hidden h-8 rounded-full bg-ink px-3 text-[13px] font-medium text-cream"></button>
+      </div>
+      <ul id="c-tx" class="flex flex-col"></ul>
+    </section>
+
+    <details class="rounded-2xl bg-surface p-4 text-sm">
+      <summary class="cursor-pointer font-medium text-ink">Réglages</summary>
+      <div class="mt-4 flex flex-col gap-3">
+        <p class="text-[13px] leading-5 text-muted">
+          La catégorie choisie sur une opération vaut pour toutes celles du même nom, aussi aux prochains imports.
+        </p>
+        <button id="c-wipe" type="button" class="h-10 rounded-xl bg-bg text-[#b4234a] ring-hairline">
+          Effacer toutes les opérations importées
+        </button>
+      </div>
+    </details>
+  </div>
+  <script>
+    type Section = "compte" | "poche" | "epargne";
+    type Tx = {
+      key: string;
+      bank: string;
+      section: Section;
+      seq: number; // ordre dans l'extrait, pour départager les opérations du même jour
+      date: string;
+      desc: string;
+      amount: number;
+      balance: number | null;
+      who: string;
+      iban: string;
+    };
+    type Store = { tx: Tx[]; own: string[]; owner: string; cats: Record<string, string> };
+
+    const KEY = "argent:comptes:v1";
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+    const load = (): Store => {
+      try {
+        const s = JSON.parse(localStorage.getItem(KEY) || "");
+        if (s && Array.isArray(s.tx)) return { own: [], owner: "", cats: {}, ...s };
+      } catch {}
+      return { tx: [], own: [], owner: "", cats: {} };
+    };
+    let store = load();
+    const save = () => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify(store));
+      } catch {}
+    };
+
+    const money = new Intl.NumberFormat("fr-BE", { style: "currency", currency: "EUR" });
+    const fmt = (n: number) => money.format(n).replace(",00", "");
+    const signed = (n: number) => (n > 0 ? "+" : "") + fmt(n);
+    const parse = (s: string) => {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    };
+
+    // --- Lecture d'un extrait Revolut (PDF) ---
+    const MONTHS: Record<string, number> = {
+      Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12,
+    };
+    const DATE = /^([A-Z][a-z]{2}) (\d{1,2}), (\d{4})$/;
+    const euros = (s: string) => Number(s.replace(/[€,\s]/g, ""));
+    type Item = { page: number; x: number; y: number; h: number; s: string };
+
+    async function readPdf(file: File): Promise<Item[]> {
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.min.mjs");
+      const worker = (await import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url")).default;
+      pdfjs.GlobalWorkerOptions.workerSrc = worker;
+      const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+      const items: Item[] = [];
+      for (let p = 1; p <= doc.numPages; p++) {
+        const content = await (await doc.getPage(p)).getTextContent();
+        for (const it of content.items as { str: string; transform: number[]; height: number }[])
+          if (it.str.trim())
+            items.push({ page: p, x: it.transform[4], y: Math.round(it.transform[5] * 2) / 2, h: it.height, s: it.str.trim() });
+      }
+      // Ordre de lecture : page, puis de haut en bas, puis de gauche à droite.
+      return items.sort((a, b) => a.page - b.page || b.y - a.y || a.x - b.x);
+    }
+
+    function parseRevolut(items: Item[]) {
+      if (!items.some((i) => /Revolut/.test(i.s))) return null;
+      const iban = items.find((i) => i.page === 1 && /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(i.s))?.s ?? "";
+      const owner = items.find((i) => i.page === 1 && i.h > 11 && i.x < 60 && /^[A-ZÀ-Ý' -]{5,}$/.test(i.s))?.s ?? "";
+      const txs: (Tx & { id: string; page: number; y: number })[] = [];
+      let section: Section | null = null;
+      let cur: (typeof txs)[number] | null = null;
+      let outX = 335;
+      let inX = 417;
+      let seq = 0;
+      for (const it of items) {
+        if (it.h > 11 && /transactions from/.test(it.s)) {
+          section = /^Account/.test(it.s) ? "compte" : /Pocket/.test(it.s) ? "poche" : "epargne";
+          cur = null;
+          continue;
+        }
+        if (it.s === "Money out") outX = it.x;
+        if (it.s === "Money in") inX = it.x;
+        const m = it.x < 80 && it.h > 7 ? DATE.exec(it.s) : null;
+        if (m && section) {
+          const date = `${m[3]}-${String(MONTHS[m[1]]).padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+          cur = { key: "", id: "", bank: "Revolut", section, seq: seq++, date, desc: "", amount: 0, balance: null, who: "", iban: "", page: it.page, y: it.y };
+          txs.push(cur);
+          continue;
+        }
+        if (!cur || it.page !== cur.page || it.y < 110) continue;
+        const sameRow = Math.abs(it.y - cur.y) < 1.5;
+        if (sameRow && it.h > 7) {
+          if (it.x >= 150 && it.x < outX - 5) cur.desc += (cur.desc ? " " : "") + it.s;
+          else if (it.s.startsWith("€")) {
+            if (it.x > inX + 60) cur.balance = euros(it.s);
+            else cur.amount = it.x < (outX + inX) / 2 ? -euros(it.s) : euros(it.s);
+          }
+        } else if (it.y < cur.y && it.x >= 150 && it.x < outX - 5) {
+          if (it.h > 7) cur.desc += " " + it.s; // libellé sur deux lignes
+          else if (it.h < 6) {
+            const d = /^(Transaction Id|From|To): (.*)$/.exec(it.s);
+            if (d?.[1] === "Transaction Id") cur.id = d[2];
+            else if (d) {
+              const [name, account] = d[2].split(/,\s*(?=[A-Z]{2}\d{2}[A-Z0-9]{10,})/);
+              cur.who = name.trim();
+              cur.iban = account?.trim() ?? "";
+            }
+          }
+        }
+      }
+      const out = txs
+        .filter((t) => t.desc && t.amount)
+        .map(({ id, page, y, ...t }) => ({ ...t, key: `revolut:${t.section}:${id || `${t.date}|${t.desc}|${t.amount}|${t.balance}`}` }));
+      return { tx: out, iban, owner };
+    }
+
+    // --- Import ---
+    $<HTMLInputElement>("c-file").addEventListener("change", async (e) => {
+      const input = e.target as HTMLInputElement;
+      const msg = $("c-import-msg");
+      let added = 0;
+      let already = 0;
+      let unknown = 0;
+      for (const file of Array.from(input.files ?? [])) {
+        msg.textContent = `Lecture de ${file.name}…`;
+        try {
+          const res = parseRevolut(await readPdf(file));
+          if (!res || !res.tx.length) {
+            unknown++;
+            continue;
+          }
+          if (res.iban && !store.own.includes(res.iban)) store.own.push(res.iban);
+          if (res.owner) store.owner = res.owner;
+          const have = new Set(store.tx.map((t) => t.key));
+          const base = store.tx.reduce((m, t) => Math.max(m, t.seq), -1) + 1;
+          for (const t of res.tx) {
+            if (have.has(t.key)) already++;
+            else {
+              store.tx.push({ ...t, seq: base + t.seq });
+              added++;
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          unknown++;
+        }
+      }
+      save();
+      const parts = [];
+      if (added) parts.push(`${added} opération${added > 1 ? "s" : ""} ajoutée${added > 1 ? "s" : ""}`);
+      if (already) parts.push(`${already} déjà là`);
+      if (unknown) parts.push(`${unknown} fichier${unknown > 1 ? "s" : ""} pas reconnu${unknown > 1 ? "s" : ""}`);
+      msg.textContent = parts.join(" · ") || "Rien trouvé dans ce fichier.";
+      input.value = "";
+      month = "";
+      render();
+    });
+
+    // --- Catégories ---
+    const OUT = ["Courses", "Carburant", "Resto & snacks", "Sorties & loisirs", "Abonnements", "Santé", "Logement", "Proches", "Autres"];
+    const IN = ["Revenus", "Proches", "Autres rentrées"];
+    const INTERNAL = "Entre mes comptes";
+    const RULES: [RegExp, string][] = [
+      [/lukoil|esso|shell|total ?energies|\bq8\b|texaco|dats ?24|gabriels|octa\+|power|makro fuel/, "Carburant"],
+      [/delhaize|intermarch|colruyt|aldi|lidl|carrefour|\bspar\b|cora|okay|match|albert heijn|action/, "Courses"],
+      [/mcdonald|quick|burger|kfc|pizza|resto|snack|friterie|uber ?eats|deliveroo|takeaway|starbucks|boulangerie/, "Resto & snacks"],
+      [/path[eé]|kinepolis|cin[eé]ma|bowling|steam|playstation|xbox|nintendo|roblox|ticket/, "Sorties & loisirs"],
+      [/netflix|spotify|disney|apple\.com|google|amazon prime|proximus|orange|telenet|base|voo|scarlet|openai|anthropic|claude/, "Abonnements"],
+      [/pharma|m[eé]decin|docteur|dentiste|h[oô]pital|mutuelle|solidaris|mutualit/, "Santé"],
+      [/loyer|engie|luminus|eneco|swde|ores|vivaqua/, "Logement"],
+    ];
+    const norm = (t: Tx) => (t.amount > 0 ? "+" : "-") + t.desc.toLowerCase().replace(/\s+/g, " ").trim();
+    const firstName = () => (store.owner.split(" ")[0] || "").toLowerCase();
+    const isInternal = (t: Tx) =>
+      t.section !== "compte" ||
+      /pocket|instant access savings|savings vault|coffre/i.test(t.desc) ||
+      (!!t.iban && store.own.includes(t.iban)) ||
+      (!!firstName() && `${t.who} ${t.desc}`.toLowerCase().includes(firstName()));
+    function category(t: Tx) {
+      const chosen = store.cats[norm(t)];
+      if (chosen) return chosen;
+      if (isInternal(t)) return INTERNAL;
+      const d = `${t.desc} ${t.who}`.toLowerCase();
+      if (t.amount > 0) {
+        if (/\b(llc|srl|sprl|sa|nv|bv|sas|ltd|gmbh|scomm)\b|randstad|salaire|interim|onem|mutuelle/.test(d)) return "Revenus";
+        if (t.iban || /payment from|transfer from/.test(d)) return "Proches";
+        return "Autres rentrées";
+      }
+      for (const [re, cat] of RULES) if (re.test(d)) return cat;
+      if (t.iban && /^to /i.test(t.desc)) return "Proches";
+      return "Autres";
+    }
+
+    // --- Affichage ---
+    let month = "";
+    let filter = "";
+    const months = () => [...new Set(store.tx.map((t) => t.date.slice(0, 7)))].sort();
+    const monthLabel = (m: string) => parse(`${m}-01`).toLocaleDateString("fr-BE", { month: "long", year: "numeric" });
+    const shortDate = (s: string) => parse(s).toLocaleDateString("fr-BE", { weekday: "short", day: "numeric", month: "short" });
+
+    $("c-prev").addEventListener("click", () => step(-1));
+    $("c-next").addEventListener("click", () => step(1));
+    function step(n: number) {
+      const list = months();
+      const i = list.indexOf(month) + n;
+      if (i < 0 || i >= list.length) return;
+      month = list[i];
+      filter = "";
+      render();
+    }
+    $("c-filter").addEventListener("click", () => {
+      filter = "";
+      render();
+    });
+
+    function render() {
+      const list = months();
+      $("c-dash").hidden = !list.length;
+      if (!list.length) return;
+      if (!list.includes(month)) month = list.at(-1)!;
+      $("c-month").textContent = monthLabel(month);
+      $<HTMLButtonElement>("c-prev").disabled = month === list[0];
+      $<HTMLButtonElement>("c-next").disabled = month === list.at(-1);
+      $("c-prev").classList.toggle("opacity-30", month === list[0]);
+      $("c-next").classList.toggle("opacity-30", month === list.at(-1));
+
+      // Soldes : dernier solde connu de chaque compte à la fin du mois.
+      const end = `${month}-31`;
+      const accounts = new Map<string, Tx>();
+      for (const t of [...store.tx].sort((a, b) => a.date.localeCompare(b.date) || a.seq - b.seq))
+        if (t.date <= end && t.balance !== null) accounts.set(`${t.bank} · ${t.section}`, t);
+      const names: Record<Section, string> = { compte: "compte courant", poche: "poches", epargne: "épargne" };
+      $("c-accounts").replaceChildren(
+        ...[...accounts.entries()]
+          .filter(([, t]) => t.section !== "poche" || t.balance)
+          .map(([, t]) => {
+            const li = document.createElement("li");
+            li.className = "flex flex-col gap-1 rounded-2xl bg-surface p-3";
+            li.innerHTML = `<p class="text-[13px] text-muted"></p><p class="font-display text-[28px] leading-[1.1] text-ink"></p>`;
+            li.children[0].textContent = `${t.bank} ${names[t.section]}`;
+            li.children[1].textContent = fmt(t.balance!);
+            return li;
+          }),
+      );
+
+      const inMonth = store.tx.filter((t) => t.date.startsWith(month));
+      const real = inMonth.filter((t) => category(t) !== INTERNAL);
+      const income = real.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const spent = real.filter((t) => t.amount < 0).reduce((s, t) => s - t.amount, 0);
+      $("c-in").textContent = fmt(income);
+      $("c-out").textContent = fmt(spent);
+      $("c-net").textContent = signed(Math.round((income - spent) * 100) / 100);
+
+      // Barres par catégorie (sorties seulement), de la plus grosse à la plus petite.
+      const byCat = new Map<string, number>();
+      for (const t of real) if (t.amount < 0) byCat.set(category(t), (byCat.get(category(t)) ?? 0) - t.amount);
+      const cats = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
+      const max = cats[0]?.[1] ?? 1;
+      $("c-cats").replaceChildren(
+        ...cats.map(([cat, sum]) => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <button type="button" class="flex w-full flex-col gap-1.5 rounded-xl py-2 text-left">
+              <span class="flex w-full items-baseline justify-between gap-3 text-[15px]">
+                <span class="text-ink"></span>
+                <span class="tabular-nums text-ink"><span></span> <span class="text-[13px] text-muted"></span></span>
+              </span>
+              <span class="h-2 w-full overflow-hidden rounded-full bg-surface"><span class="block h-full rounded-full"></span></span>
+            </button>`;
+          const spans = li.querySelectorAll("span span");
+          spans[0].textContent = cat;
+          spans[2].textContent = fmt(sum);
+          spans[3].textContent = `${Math.round((sum / spent) * 100)} %`;
+          const bar = li.querySelector<HTMLElement>("span.block")!;
+          bar.style.width = `${Math.max(2, (sum / max) * 100)}%`;
+          bar.classList.add(filter && filter !== cat ? "bg-hairline" : "bg-ink");
+          li.querySelector("button")!.addEventListener("click", () => {
+            filter = filter === cat ? "" : cat;
+            render();
+          });
+          return li;
+        }),
+      );
+      if (!cats.length) $("c-cats").innerHTML = `<li class="text-sm text-muted">Aucune dépense ce mois-ci.</li>`;
+
+      // Une barre par jour du mois ; toucher une barre donne le montant.
+      const [y, m] = month.split("-").map(Number);
+      const nDays = new Date(y, m, 0).getDate();
+      const perDay = Array.from({ length: nDays }, () => 0);
+      for (const t of real) if (t.amount < 0 && (!filter || category(t) === filter)) perDay[Number(t.date.slice(8)) - 1] -= t.amount;
+      const top = Math.max(...perDay, 1);
+      const tip = $("c-day-tip");
+      tip.textContent = `max ${fmt(top)}`;
+      $("c-days").replaceChildren(
+        ...perDay.map((v, i) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "flex h-full flex-1 items-end";
+          b.setAttribute("aria-label", `${i + 1} : ${fmt(v)}`);
+          const bar = document.createElement("span");
+          bar.className = v ? "block w-full rounded-t-[3px] bg-ink" : "block h-[2px] w-full bg-hairline";
+          if (v) bar.style.height = `${Math.max(3, (v / top) * 100)}%`;
+          b.append(bar);
+          b.addEventListener("click", () => {
+            $("c-days").querySelectorAll(".bg-accent").forEach((x) => x.classList.replace("bg-accent", "bg-ink"));
+            if (v) bar.classList.replace("bg-ink", "bg-accent");
+            tip.textContent = `${shortDate(`${month}-${String(i + 1).padStart(2, "0")}`)} · ${fmt(v)}`;
+          });
+          return b;
+        }),
+      );
+      $("c-days-axis").innerHTML = `<span>1</span><span>${Math.ceil(nDays / 2)}</span><span>${nDays}</span>`;
+
+      // Liste des opérations du mois, la plus récente d'abord.
+      const fb = $<HTMLButtonElement>("c-filter");
+      fb.classList.toggle("hidden", !filter);
+      fb.textContent = `${filter} ✕`;
+      const rows = inMonth
+        // Les mouvements internes à l'épargne et aux poches restent hors de la liste (leur solde est en haut).
+        .filter((t) => t.section === "compte" && (!filter || category(t) === filter))
+        .sort((a, b) => b.date.localeCompare(a.date) || b.seq - a.seq);
+      $("c-tx").replaceChildren(...rows.map(txRow));
+    }
+
+    function txRow(t: Tx) {
+      const cat = category(t);
+      const li = document.createElement("li");
+      li.className = "flex items-center gap-3 border-b border-hairline py-3";
+      if (cat === INTERNAL) li.classList.add("opacity-50");
+      li.innerHTML = `
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-[15px] text-ink"></p>
+          <p class="flex items-center gap-1 text-[13px] text-muted"><span></span>·<select class="min-w-0 max-w-[11rem] bg-transparent underline decoration-hairline underline-offset-4"></select></p>
+        </div>
+        <p class="text-[15px] font-medium tabular-nums"></p>`;
+      li.querySelector("p")!.textContent = t.desc;
+      li.querySelector("p span")!.textContent = `${shortDate(t.date)} · ${t.bank}`;
+      const select = li.querySelector("select")!;
+      for (const c of [...(t.amount > 0 ? IN : OUT), INTERNAL]) select.add(new Option(c, c, false, c === cat));
+      select.setAttribute("aria-label", "Catégorie");
+      select.addEventListener("change", () => {
+        store.cats[norm(t)] = select.value;
+        save();
+        render();
+      });
+      const amount = li.querySelector<HTMLElement>("div + p")!;
+      amount.textContent = signed(t.amount);
+      amount.classList.add(t.amount > 0 ? "text-ink" : "text-[#b4234a]");
+      return li;
+    }
+
+    // Effacer en deux taps.
+    const wipe = $<HTMLButtonElement>("c-wipe");
+    wipe.addEventListener("click", () => {
+      if (!wipe.dataset.armed) {
+        wipe.dataset.armed = "1";
+        wipe.textContent = "Sûr ? Touche encore pour tout effacer";
+        setTimeout(() => {
+          delete wipe.dataset.armed;
+          wipe.textContent = "Effacer toutes les opérations importées";
+        }, 3000);
+        return;
+      }
+      store = { tx: [], own: [], owner: "", cats: {} };
+      save();
+      location.reload();
+    });
+
+    render();
+  </script>
