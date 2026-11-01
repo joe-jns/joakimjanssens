@@ -53,6 +53,17 @@ describe("paie", () => {
     expect(s.txns.filter((t) => t.source === "journee")).toHaveLength(8);
     expect(workdaysIn("2026-10-30", "2026-11-02")).toEqual(["2026-10-30", "2026-11-02"]);
   });
+  it("saisir l'employeur après l'import : les journées des semaines déjà payées disparaissent", () => {
+    let s = saveWork(emptyState(), { start: "2026-10-19", dayAmount: 100, accountId: "revolut" }, NOW);
+    expect(s.txns.filter((t) => t.source === "journee")).toHaveLength(10);
+    const pay = { key: "revolut:courant:p1", date: "2026-10-29", amount: 495, label: "Payment from INTERIM EXEMPLE", counterparty: "Interim Exemple", iban: "", section: "courant" as const, balance: null };
+    s = reconcile(s, { bank: "revolut", iban: "BE00 0000 0000 0202", owner: "ALEX EXEMPLE", firstName: "ALEX", lines: [pay] }).state;
+    expect(s.work.paidWeeks).toEqual([]);
+    s = saveWork(s, { payer: "Interim Exemple" }, NOW);
+    expect(s.work.paidWeeks).toEqual(["2026-10-19"]);
+    expect(s.txns.filter((t) => t.source === "journee").map((t) => t.date)).toEqual(["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30"]);
+    expect(saveWork(s, { payer: "Interim Exemple" }, NOW)).toEqual(s);
+  });
   it("plages séparées par un jour ouvré", () => {
     expect(skippedRanges(["2026-10-20", "2026-10-22"]).length).toBe(2);
   });

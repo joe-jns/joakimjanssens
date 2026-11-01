@@ -86,7 +86,7 @@ export type ImportOutcome =
   | { ok: true; state: State; bank: string; report: ReconcileReport; text: string; anchors: { name: string; date: string; balance: number }[]; warnings: string[] }
   | { ok: false; text: string };
 
-export const PAY_NOT_RECOGNIZED = "Ta paie n’est pas reconnue : indique le nom de ton employeur dans Planning › Paie, puis réimporte.";
+export const PAY_NOT_RECOGNIZED = "Ta paie n’est pas reconnue : indique le nom de ton employeur dans Planning › Paie : les semaines déjà payées se corrigent toutes seules.";
 
 /**
  * Paie à la journée réglée mais sans nom d'employeur : la vraie paie de l'extrait ne remplace pas les journées

@@ -12,6 +12,37 @@ const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 const mondayOf =(day: string): string => addDays(day, -((parse(day).getDay() + 6) % 7));
 const dayGap = (a: string, b: string): number => Math.abs(Math.round((parse(a).getTime() - parse(b).getTime()) / 864e5));
 
+// Lundi de la semaine payée par une paie arrivée ce jour-là (la semaine précédente) et ses jours ouvrés.
+const paidWeekOf = (day: string): { monday: string; days: Set<string> } => {
+  const monday = addDays(mondayOf(day), -7);
+  return { monday, days: new Set([0, 1, 2, 3, 4].map((i) => addDays(monday, i)).filter(isWorkday)) };
+};
+const isPayroll = (amount: number, text: string, payer: string): boolean => amount > 0 && !!payer && text.toLowerCase().includes(payer);
+
+/**
+ * Paie déjà dans l'état (lignes de la banque) mais reconnue après coup (nom de l'employeur saisi après l'import) :
+ * retire les journées estimées des semaines payées et mémorise ces semaines. Idempotent, fonction pure.
+ */
+export function applyKnownPayroll(state: State): State {
+  const payer = state.work.payer.trim().toLowerCase();
+  if (!payer) return state;
+  const paidWeeks = new Set(state.work.paidWeeks);
+  const drop = new Set<string>();
+  for (const t of state.txns) {
+    if (t.status !== "banque" || !isPayroll(round2(t.amount), `${t.label} ${t.note ?? ""}`, payer)) continue;
+    const { monday, days } = paidWeekOf(t.date);
+    if (paidWeeks.has(monday)) continue;
+    paidWeeks.add(monday);
+    days.forEach((d) => drop.add(d));
+  }
+  if (paidWeeks.size === state.work.paidWeeks.length) return state;
+  return {
+    ...state,
+    txns: state.txns.filter((t) => !(t.source === "journee" && drop.has(t.date))),
+    work: { ...state.work, paidWeeks: [...paidWeeks] },
+  };
+}
+
 // Fusionne un extrait bancaire dans l'état sans compter deux fois. Fonction pure.
 export function reconcile(state: State, st: Statement): { state: State; report: ReconcileReport } {
   const report: ReconcileReport = { added: 0, linked: 0, replacedDays: 0, already: 0, skipped: 0 };
@@ -125,26 +156,32 @@ export function reconcile(state: State, st: Statement): { state: State; report: 
       continue;
     }
 
-    // 2. Déjà importée (lors d'un import précédent).
+    const amount = round2(line.amount);
+    const text = `${line.label} ${line.counterparty}`;
+    // Retire les journées estimées de la semaine payée par cette ligne (la semaine précédente).
+    const replaceWeek = () => {
+      const { monday, days } = paidWeekOf(line.date);
+      const before = txns.length;
+      txns = txns.filter((t) => !(t.source === "journee" && days.has(t.date)));
+      report.replacedDays += before - txns.length;
+      paidWeeks.add(monday);
+    };
+
+    // 2. Déjà importée (lors d'un import précédent). Une paie reconnue seulement maintenant (employeur saisi
+    // après le premier import) remplace quand même les journées de sa semaine, une seule fois.
     if (known.has(key)) {
       report.already++;
+      if (isPayroll(amount, text, payer) && !paidWeeks.has(paidWeekOf(line.date).monday)) replaceWeek();
       continue;
     }
-    const amount = round2(line.amount);
     const base: Txn = {
       id: crypto.randomUUID(), accountId: acc.id, date: line.date, amount, label: line.label,
       status: "banque", source: "import", bankKey: key,
     };
 
     // 3. Paie : remplace les journées de la semaine précédente.
-    const text = `${line.label} ${line.counterparty}`.toLowerCase();
-    if (amount > 0 && payer && text.includes(payer)) {
-      const monday = addDays(mondayOf(line.date), -7);
-      const days = new Set([0, 1, 2, 3, 4].map((i) => addDays(monday, i)).filter(isWorkday));
-      const before = txns.length;
-      txns = txns.filter((t) => !(t.source === "journee" && days.has(t.date)));
-      report.replacedDays += before - txns.length;
-      paidWeeks.add(monday);
+    if (isPayroll(amount, text, payer)) {
+      replaceWeek();
       txns.push({ ...base, categoryId: "salaire" });
       report.added++;
       continue;

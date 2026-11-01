@@ -5,7 +5,7 @@ import { parseCbc } from "./import/cbc";
 import type { PdfItem } from "./import/types";
 import type { StatementLine, Statement } from "./import/types";
 import { emptyState, type State, type Txn } from "./model";
-import { reconcile } from "./reconcile";
+import { applyKnownPayroll, reconcile } from "./reconcile";
 import { materializeSchedule } from "./schedule";
 import { syncWorkdays } from "./workdays";
 
@@ -380,5 +380,54 @@ describe("reconcile — extrait CBC", () => {
     });
     const st = cbcStmt([l("2031-09-20", -10, 90, 1), l("2031-09-19", -5, 85, 2)]);
     expect(reconcile(emptyState(), st).state.accounts.find((a) => a.id === "cbc")?.anchor).toEqual({ date: "2031-09-20", balance: 85 });
+  });
+});
+
+describe("paie : rattrapage quand l'employeur est saisi après l'import", () => {
+  const start = (payer: string): State => ({ ...emptyState(), work: { ...emptyState().work, start: "2026-10-05", accountId: "revolut", payer } });
+  const pays = () => [
+    line("2026-10-15", 480, { label: "Payment from INTERIM EXEMPLE", counterparty: "Interim Exemple", key: "revolut:courant:pay1" }),
+    line("2026-10-22", 490, { label: "Payment from INTERIM EXEMPLE", counterparty: "Interim Exemple", key: "revolut:courant:pay2" }),
+    line("2026-10-20", -30, { label: "Boulangerie", key: "revolut:courant:shop" }),
+  ];
+  const journees = (s: State) => s.txns.filter((t) => t.source === "journee").map((t) => t.date);
+
+  it("réimport après avoir saisi l'employeur : lignes déjà là, journées des semaines payées retirées", () => {
+    const s1 = syncWorkdays(start(""), new Date(2026, 9, 23, 21));
+    const first = reconcile(s1, stmt(pays())).state;
+    expect(journees(first)).toHaveLength(15);
+    const named = { ...first, work: { ...first.work, payer: "interim exemple" } };
+    const { state, report } = reconcile(named, stmt(pays()));
+    expect(report).toMatchObject({ added: 0, linked: 0, already: 3, replacedDays: 10 });
+    expect(journees(state)).toEqual(["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"]);
+    expect(state.work.paidWeeks.sort()).toEqual(["2026-10-05", "2026-10-12"]);
+    // Idempotent.
+    const again = reconcile(state, stmt(pays()));
+    expect(again.report.replacedDays).toBe(0);
+    expect(again.state.txns).toEqual(state.txns);
+  });
+
+  it("applyKnownPayroll : saisir l'employeur suffit, sans réimporter ; 2e appel sans effet", () => {
+    const s1 = syncWorkdays(start(""), new Date(2026, 9, 23, 21));
+    const imported = reconcile(s1, stmt(pays())).state;
+    const named = { ...imported, work: { ...imported.work, payer: "Interim Exemple" } };
+    const fixed = applyKnownPayroll(named);
+    expect(journees(fixed)).toEqual(["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"]);
+    expect(fixed.work.paidWeeks.sort()).toEqual(["2026-10-05", "2026-10-12"]);
+    // Le reste ne bouge pas : mêmes opérations hors journées ; solde = vraies paies + achat, puis la semaine
+    // pas encore payée le jour de sa paie estimée (jeudi 29).
+    expect(fixed.txns.filter((t) => t.source !== "journee")).toEqual(named.txns.filter((t) => t.source !== "journee"));
+    expect(accountBalance(named, "revolut", "2026-10-23")).toBe(1940);
+    expect(accountBalance(fixed, "revolut", "2026-10-23")).toBe(480 + 490 - 30);
+    expect(accountBalance(fixed, "revolut", "2026-10-29")).toBe(480 + 490 - 30 + 500);
+    expect(applyKnownPayroll(fixed)).toEqual(fixed);
+  });
+
+  it("applyKnownPayroll : sans employeur, ou rentrée saisie à la main, rien ne change", () => {
+    const s1 = syncWorkdays(start(""), new Date(2026, 9, 16, 21));
+    const imported = reconcile(s1, stmt(pays().slice(0, 1))).state;
+    expect(applyKnownPayroll(imported)).toEqual(imported);
+    const hand = { ...s1, work: { ...s1.work, payer: "interim exemple" }, txns: [...s1.txns, manual("2026-10-15", 480, { label: "Interim Exemple" })] };
+    expect(journees(applyKnownPayroll(hand))).toHaveLength(10);
   });
 });

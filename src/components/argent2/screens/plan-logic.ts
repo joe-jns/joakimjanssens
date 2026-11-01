@@ -9,11 +9,13 @@
 //   échéance : reste et « déjà remboursé » sont ceux saisis, les tranches passées ne bougent pas. Si la date et la
 //   fréquence ne changent pas, la série garde son jour d'origine (voir saveDebt).
 // - Changer les réglages de la paie recalcule les journées « prévues » (montant, compte, période) ; les journées
-//   remplacées par la vraie paie de la banque n'existent plus et ne reviennent pas (semaines payées).
+//   remplacées par la vraie paie de la banque n'existent plus et ne reviennent pas (semaines payées). Le nom de
+//   l'employeur saisi après l'import suffit : la paie déjà importée est reconnue sans réimporter.
 import { accountBalance, transfer } from "../../../lib/argent/balance";
 import { addDays, isWorkday, MONTHS_LONG, MONTHS_SHORT, nthDate, parse, DAYS_SHORT, type Every } from "../../../lib/argent/dates";
 import type { Account, Debt, Goal, Recurring, State, Work } from "../../../lib/argent/model";
 import { round2 } from "../../../lib/argent/money";
+import { applyKnownPayroll } from "../../../lib/argent/reconcile";
 import { debtLeft, debtSchedule } from "../../../lib/argent/schedule";
 import { skipDays, syncWorkdays, unskipDay } from "../../../lib/argent/workdays";
 
@@ -57,7 +59,8 @@ export function saveWork(s: State, patch: Partial<Work>, now: Date): State {
         ? { ...t, amount: work.dayAmount, accountId: work.accountId ?? t.accountId }
         : t,
     );
-  return syncWorkdays({ ...s, work, txns }, now);
+  // Employeur saisi (ou corrigé) après l'import : la paie déjà là remplace les journées de ses semaines.
+  return syncWorkdays(applyKnownPayroll({ ...s, work, txns }), now);
 }
 
 /** Jours ouvrés (lundi–vendredi) de `from` à `to` inclus, dans l'ordre. */
