@@ -4,7 +4,8 @@ import { addDays, iso, parse } from "../../../lib/argent/dates";
 import { parseCbc } from "../../../lib/argent/import/cbc";
 import { parseRevolut } from "../../../lib/argent/import/revolut";
 import type { PdfItem, Statement } from "../../../lib/argent/import/types";
-import { emptyState, type Account, type AccountKind, type State } from "../../../lib/argent/model";
+import { emptyState, type Account, type AccountKind, type State, type Txn } from "../../../lib/argent/model";
+import { round2 } from "../../../lib/argent/money";
 import { reconcile, type ReconcileReport } from "../../../lib/argent/reconcile";
 import { dayLong } from "./plan-logic";
 
@@ -66,6 +67,30 @@ export function sparkPath(values: number[], w: number, h: number): string {
 
 export const anchorText = (a: Account): string =>
   a.anchor ? `Calé sur l’extrait du ${dayLong(a.anchor.date)}` : a.bank ? "Pas encore d’extrait importé" : "Tenu à la main";
+
+/** Compte calé sur un extrait : son solde se corrige en réimportant, pas à la main. */
+export const anchoredFixText = (a: Account): string =>
+  a.anchor ? `Calé sur l’extrait du ${dayLong(a.anchor.date)} : réimporte un extrait pour le mettre à jour.` : "";
+
+export const CORRECTION_LABEL = "Correction du solde";
+
+/**
+ * « Corriger le solde » d'un compte sans extrait (liquide, épargne tenue à la main) : `real` = ce qu'il y a vraiment
+ * ce soir. Ajoute une seule opération saisie, datée d'aujourd'hui, pour l'écart. Elle est comptée (du liquide
+ * dépensé est une vraie dépense) : « Autres » si le solde baisse, « Autres rentrées » s'il monte. Écart nul, compte
+ * calé sur un extrait, compte inconnu ou montant illisible : état inchangé.
+ */
+export function correctBalance(s: State, accountId: string, real: number, today: string): State {
+  const acc = s.accounts.find((a) => a.id === accountId);
+  if (!acc || acc.anchor || !Number.isFinite(real)) return s;
+  const diff = round2(real - accountBalance(s, accountId, today));
+  if (!diff) return s;
+  const txn: Txn = {
+    id: crypto.randomUUID(), accountId, date: today, amount: diff, label: CORRECTION_LABEL,
+    categoryId: diff < 0 ? "autres-out" : "autres-in", status: "manuel", source: "saisie",
+  };
+  return { ...s, txns: [...s.txns, txn] };
+}
 
 /* ---------- Import d'extraits ---------- */
 /**

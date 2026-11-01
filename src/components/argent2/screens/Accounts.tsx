@@ -1,19 +1,19 @@
 // Comptes : une carte par compte (solde, petite courbe du mois, « calé sur l'extrait du … »), ajouter /
-// renommer, actions Ajouter / Virement / Épargner / Importer. `AccountsCard` est le bloc « Mes comptes »
+// renommer, corriger le solde d'un compte tenu à la main, actions Ajouter / Virement / Épargner / Importer. `AccountsCard` est le bloc « Mes comptes »
 // de l'accueil PC (deux cartes pleines pour les comptes courants, lignes pour les autres).
 import { useEffect, useState } from "preact/hooks";
 import { accountBalance, totalBalance } from "../../../lib/argent/balance";
 import { INK, WHITE, contrast } from "../../../lib/argent/color";
 import { iso } from "../../../lib/argent/dates";
 import type { Account, AccountKind, State } from "../../../lib/argent/model";
-import { fmt } from "../../../lib/argent/money";
+import { fmt, toAmount } from "../../../lib/argent/money";
 import { state, update } from "../../../lib/argent/store";
 import { accountSheet, addPreset, openSheet } from "../nav";
-import { TextField } from "../sheets/fields";
+import { MoneyField, TextField } from "../sheets/fields";
 import { Icon } from "../ui/Icon";
 import { Sheet } from "../ui/Sheet";
 import { dayLong } from "./plan-logic";
-import { KIND_LABEL, addAccount, anchorText, monthSpark, renameAccount, sparkPath } from "./accounts-logic";
+import { KIND_LABEL, addAccount, anchoredFixText, anchorText, correctBalance, monthSpark, renameAccount, sparkPath } from "./accounts-logic";
 
 const SPARK_W = 120;
 const SPARK_H = 32;
@@ -81,13 +81,20 @@ function AccountCard({ s, a, today }: { s: State; a: Account; today: string }) {
           <h2>{a.name}</h2>
           <p class="ag-acc-kind">{KIND_LABEL[a.kind]}</p>
         </div>
-        <button type="button" class="ag-icon-btn ag-acc-edit press" aria-label={`Renommer ${a.name}`} onClick={() => (accountSheet.value = { id: a.id })}>
+        <button type="button" class="ag-icon-btn ag-acc-edit press" aria-label={`Modifier ${a.name}`} onClick={() => (accountSheet.value = { id: a.id })}>
           <Icon name="pencil" size={18} />
         </button>
       </div>
       <p class="num-big ag-acc-balance">{fmt(bal)}</p>
       <div class="ag-acc-foot">
-        <p class="ag-acc-anchor">{anchorText(a)}</p>
+        <div class="ag-acc-anchor-col">
+          <p class="ag-acc-anchor">{anchorText(a)}</p>
+          {!a.anchor && (
+            <button type="button" class="ag-link ag-acc-fix press" onClick={() => (accountSheet.value = { id: a.id, fix: true })}>
+              Corriger le solde<span class="ag-sr-only"> de {a.name}</span>
+            </button>
+          )}
+        </div>
         <div class="ag-acc-trend">
           <Spark values={spark} color={filled ? fg : "var(--ag-rose-vif)"} />
           {spark.length > 1 && (
@@ -175,11 +182,73 @@ export function AccountsCard({ s, today }: { s: State; today: string }) {
   );
 }
 
+/* ---------- Corriger le solde (compte sans extrait) ---------- */
+function FixBalance({ acc, heading, onDone }: { acc: Account; heading?: boolean; onDone: () => void }) {
+  const today = iso(new Date());
+  const [value, setValue] = useState("");
+  const s = state.value;
+  if (acc.anchor)
+    return (
+      <div class="ag-form">
+        {heading && <h3 class="ag-acc-fix-title">Solde</h3>}
+        <p class="ag-sub">{anchoredFixText(acc)}</p>
+      </div>
+    );
+  const titleId = `ag-fix-${acc.id}`;
+  const now = accountBalance(s, acc.id, today);
+  const typed = /\d/.test(value);
+  const diff = typed ? Math.round((toAmount(value) - now) * 100) / 100 : 0;
+  return (
+    <form
+      class="ag-form"
+      aria-labelledby={heading ? titleId : undefined}
+      aria-label={heading ? undefined : "Corriger le solde"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!diff) return;
+        update((x) => correctBalance(x, acc.id, toAmount(value), today));
+        onDone();
+      }}
+    >
+      {heading && (
+        <h3 id={titleId} class="ag-acc-fix-title">
+          Corriger le solde
+        </h3>
+      )}
+      <p class="ag-sub">
+        Dans l’appli : <span class="num">{fmt(now)}</span>. Indique ce qu’il y a vraiment aujourd’hui : l’écart devient une
+        opération « Correction du solde » datée d’aujourd’hui, comptée dans tes dépenses ou tes rentrées.
+      </p>
+      <MoneyField label="Montant réel aujourd’hui" value={value} onChange={setValue} required />
+      <p class="ag-sub" aria-live="polite">
+        {!typed ? "" : diff ? `Écart : ${diff > 0 ? "+" : ""}${fmt(diff)} (${diff < 0 ? "dépense « Autres »" : "rentrée « Autres rentrées »"})` : "Rien à corriger : c’est déjà le bon montant."}
+      </p>
+      <button type="submit" class="ag-btn-full press" disabled={!diff}>
+        Corriger le solde
+      </button>
+    </form>
+  );
+}
+
 /* ---------- Feuille ajouter / renommer ---------- */
 const KINDS: AccountKind[] = ["courant", "epargne", "liquide"];
 
-function AccountForm({ id, onDone }: { id?: string; onDone: () => void }) {
+function AccountForm({ id, fix, onDone }: { id?: string; fix?: boolean; onDone: () => void }) {
   const acc = id ? state.value.accounts.find((a) => a.id === id) : undefined;
+  if (acc && fix) return <FixBalance acc={acc} onDone={onDone} />;
+  return (
+    <div class="ag-form">
+      <NameForm acc={acc} onDone={onDone} />
+      {acc && (
+        <section class="ag-acc-fix-block">
+          <FixBalance acc={acc} heading onDone={onDone} />
+        </section>
+      )}
+    </div>
+  );
+}
+
+function NameForm({ acc, onDone }: { acc?: Account; onDone: () => void }) {
   const [name, setName] = useState(acc?.name ?? "");
   const [kind, setKind] = useState<AccountKind>("epargne");
   const ok = !!name.trim();
@@ -220,14 +289,15 @@ function AccountForm({ id, onDone }: { id?: string; onDone: () => void }) {
 export function AccountSheets() {
   const cur = accountSheet.value;
   // Garde le dernier contenu pendant l'animation de fermeture ; un formulaire neuf à chaque ouverture.
-  const [last, setLast] = useState<{ id?: string; run: number } | null>(null);
+  const [last, setLast] = useState<{ id?: string; fix?: boolean; run: number } | null>(null);
   useEffect(() => {
-    if (cur) setLast((l) => ({ id: cur.id, run: (l?.run ?? 0) + 1 }));
+    if (cur) setLast((l) => ({ id: cur.id, fix: cur.fix, run: (l?.run ?? 0) + 1 }));
   }, [cur]);
   const close = () => (accountSheet.value = null);
+  const shown = cur ?? last;
   return (
-    <Sheet open={!!cur} onClose={close} title={(cur ?? last)?.id ? "Renommer le compte" : "Nouveau compte"}>
-      {last && <AccountForm key={last.run} id={last.id} onDone={close} />}
+    <Sheet open={!!cur} onClose={close} title={shown?.id ? (shown.fix ? "Corriger le solde" : "Modifier le compte") : "Nouveau compte"}>
+      {last && <AccountForm key={last.run} id={last.id} fix={last.fix} onDone={close} />}
     </Sheet>
   );
 }

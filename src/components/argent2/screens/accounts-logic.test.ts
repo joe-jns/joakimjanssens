@@ -4,6 +4,7 @@ import revolutItems from "../../../lib/argent/import/fixtures/revolut-items.json
 import type { PdfItem } from "../../../lib/argent/import/types";
 import { emptyState, type State, type Txn } from "../../../lib/argent/model";
 import { reconcile } from "../../../lib/argent/reconcile";
+import { accountBalance, spendByCategory } from "../../../lib/argent/balance";
 import {
   FAILED_FILE,
   PAY_NOT_RECOGNIZED,
@@ -12,6 +13,8 @@ import {
   addAccount,
   importItems,
   anchorText,
+  anchoredFixText,
+  correctBalance,
   movedAnchors,
   monthSpark,
   parseBackup,
@@ -24,6 +27,35 @@ import {
 } from "./accounts-logic";
 
 const tx = (p: Partial<Txn>): Txn => ({ id: crypto.randomUUID(), accountId: "cbc", date: "2026-11-01", amount: 0, label: "x", status: "manuel", source: "saisie", ...p });
+
+describe("corriger le solde d'un compte tenu à la main", () => {
+  const cash = (s: State) => s.txns.filter((t) => t.accountId === "liquide");
+  it("liquide à 100, il reste 35 : une dépense « Correction du solde » de −65 aujourd'hui, comptée", () => {
+    let s: State = { ...emptyState(), txns: [tx({ accountId: "liquide", date: "2026-10-20", amount: 100, label: "Retrait", status: "banque", source: "import", transferId: "t1" })] };
+    s = correctBalance(s, "liquide", 35, "2026-11-01");
+    expect(cash(s).at(-1)).toMatchObject({ accountId: "liquide", date: "2026-11-01", amount: -65, label: "Correction du solde", categoryId: "autres-out", status: "manuel", source: "saisie" });
+    expect(cash(s).at(-1)!.excluded).toBeUndefined();
+    expect(cash(s).at(-1)!.transferId).toBeUndefined();
+    expect(accountBalance(s, "liquide", "2026-11-01")).toBe(35);
+    expect(spendByCategory(s, "2026-11").find((x) => x.categoryId === "autres-out")?.amount).toBe(65);
+  });
+  it("plus d'argent que prévu : rentrée « autres-in » ; même montant : rien ne change", () => {
+    let s = addAccount(emptyState(), "Tirelire", "epargne");
+    s = correctBalance(s, "tirelire", 40.5, "2026-11-01");
+    expect(s.txns).toHaveLength(1);
+    expect(s.txns[0]).toMatchObject({ amount: 40.5, categoryId: "autres-in" });
+    expect(correctBalance(s, "tirelire", 40.5, "2026-11-01")).toBe(s);
+    const zero = correctBalance(s, "tirelire", 0, "2026-11-01");
+    expect(accountBalance(zero, "tirelire", "2026-11-01")).toBe(0);
+  });
+  it("compte calé sur un extrait, compte inconnu ou montant illisible : rien ne change", () => {
+    const s: State = { ...emptyState(), accounts: emptyState().accounts.map((a) => (a.id === "cbc" ? { ...a, anchor: { date: "2026-10-28", balance: 500 } } : a)) };
+    expect(correctBalance(s, "cbc", 400, "2026-11-01")).toBe(s);
+    expect(correctBalance(s, "nope", 400, "2026-11-01")).toBe(s);
+    expect(correctBalance(s, "liquide", Number.NaN, "2026-11-01")).toBe(s);
+    expect(anchoredFixText(s.accounts[0])).toBe("Calé sur l’extrait du 28 octobre 2026 : réimporte un extrait pour le mettre à jour.");
+  });
+});
 
 describe("comptes", () => {
   it("ajouter un compte : id unique tiré du nom, type et couleur", () => {

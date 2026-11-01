@@ -60,5 +60,5 @@ export function openPlanSheet(p: PlanSheet): void {
 export type AddPreset = { kind: "transfer"; fromAccountId?: string; toAccountId?: string };
 export const addPreset = signal<AddPreset | null>(null);
 
-/** Feuille compte : `id` = renommer ce compte ; sans id = ajouter un compte. */
-export const accountSheet = signal<{ id?: string } | null>(null);
+/** Feuille compte : `id` = modifier ce compte (`fix` : directement « Corriger le solde ») ; sans id = ajouter un compte. */
+export const accountSheet = signal<{ id?: string; fix?: boolean } | null>(null);
