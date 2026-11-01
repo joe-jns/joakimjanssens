@@ -9,7 +9,8 @@ export const effectiveDate = (t: Txn): string => (t.source === "journee" ? payda
 // Ligne prévue que l'ancre de son compte couvre déjà (le vrai solde de l'extrait la remplace) :
 // ni dans le solde, ni dans les dépenses ou le graphe.
 // Opération « non comptée » : jamais dans les statistiques (dépenses, rentrées, graphes).
-export const counted = (t: Txn): boolean => !t.excluded;
+// Une correction de solde non plus : ce n'est pas une dépense ni une rentrée.
+export const counted = (t: Txn): boolean => !t.excluded && !t.correction;
 // Dans le solde : tout sauf une saisie ou une ligne prévue non comptée (comme si elle n'existait pas).
 // Une ligne de la banque non comptée y reste : c'est de l'argent réel, déjà dans l'ancre. Un virement aussi,
 // quel que soit son statut : il est déjà hors statistiques, ne pas le compter ne doit déplacer aucun solde.

@@ -315,7 +315,7 @@ function MonthSpend({ s, today }: { s: State; today: string }) {
 export function History({ s, today }: { s: State; today: string }) {
   const list = s.txns
     .map((t, i) => ({ t, i }))
-    .filter(({ t }) => t.date <= today)
+    .filter(({ t }) => t.date <= today && !t.correction)
     .sort((a, b) => b.t.date.localeCompare(a.t.date) || b.i - a.i)
     .slice(0, 5)
     .map(({ t }) => t);

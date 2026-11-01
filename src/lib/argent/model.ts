@@ -29,6 +29,8 @@ export type Txn = {
   note?: string;
   // « Ne pas compter » : jamais dans les statistiques ; hors du solde aussi, sauf une ligne de la banque.
   excluded?: boolean;
+  // « Corriger le solde » : ajuste le solde seulement ; ni dans Activité, ni dans les statistiques.
+  correction?: boolean;
 };
 export type Recurring = {
   id: string;

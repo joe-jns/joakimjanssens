@@ -25,6 +25,7 @@ export function buildRows(s: State): Row[] {
   for (const t of s.txns) if (t.transferId) halves.set(t.transferId, [...(halves.get(t.transferId) ?? []), t]);
   const out: { r: Row; i: number }[] = [];
   s.txns.forEach((t, i) => {
+    if (t.correction) return; // « Corriger le solde » : invisible dans Activité.
     const h = t.transferId ? halves.get(t.transferId)! : null;
     if (h && h.length === 2) {
       const from = h[0].amount <= h[1].amount ? h[0] : h[1];

@@ -76,8 +76,8 @@ export const CORRECTION_LABEL = "Correction du solde";
 
 /**
  * « Corriger le solde » d'un compte sans extrait (liquide, épargne tenue à la main) : `real` = ce qu'il y a vraiment
- * ce soir. Ajoute une seule opération saisie, datée d'aujourd'hui, pour l'écart. Elle est comptée (du liquide
- * dépensé est une vraie dépense) : « Autres » si le solde baisse, « Autres rentrées » s'il monte. Écart nul, compte
+ * ce soir. Ajoute une seule opération datée d'aujourd'hui pour l'écart, marquée `correction` : elle change le solde
+ * et rien d'autre (ni dans Activité, ni dans les dépenses ou les rentrées). Écart nul, compte
  * calé sur un extrait, compte inconnu ou montant illisible : état inchangé.
  */
 export function correctBalance(s: State, accountId: string, real: number, today: string): State {
@@ -87,7 +87,7 @@ export function correctBalance(s: State, accountId: string, real: number, today:
   if (!diff) return s;
   const txn: Txn = {
     id: crypto.randomUUID(), accountId, date: today, amount: diff, label: CORRECTION_LABEL,
-    categoryId: diff < 0 ? "autres-out" : "autres-in", status: "manuel", source: "saisie",
+    status: "manuel", source: "saisie", correction: true,
   };
   return { ...s, txns: [...s.txns, txn] };
 }

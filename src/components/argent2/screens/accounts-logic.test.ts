@@ -5,6 +5,7 @@ import type { PdfItem } from "../../../lib/argent/import/types";
 import { emptyState, type State, type Txn } from "../../../lib/argent/model";
 import { reconcile } from "../../../lib/argent/reconcile";
 import { accountBalance, spendByCategory } from "../../../lib/argent/balance";
+import { buildRows } from "./activity-logic";
 import {
   FAILED_FILE,
   PAY_NOT_RECOGNIZED,
@@ -30,20 +31,21 @@ const tx = (p: Partial<Txn>): Txn => ({ id: crypto.randomUUID(), accountId: "cbc
 
 describe("corriger le solde d'un compte tenu à la main", () => {
   const cash = (s: State) => s.txns.filter((t) => t.accountId === "liquide");
-  it("liquide à 100, il reste 35 : une dépense « Correction du solde » de −65 aujourd'hui, comptée", () => {
+  it("liquide à 100, il reste 35 : une correction de −65 aujourd'hui, dans le solde seulement", () => {
     let s: State = { ...emptyState(), txns: [tx({ accountId: "liquide", date: "2026-10-20", amount: 100, label: "Retrait", status: "banque", source: "import", transferId: "t1" })] };
     s = correctBalance(s, "liquide", 35, "2026-11-01");
-    expect(cash(s).at(-1)).toMatchObject({ accountId: "liquide", date: "2026-11-01", amount: -65, label: "Correction du solde", categoryId: "autres-out", status: "manuel", source: "saisie" });
+    expect(cash(s).at(-1)).toMatchObject({ accountId: "liquide", date: "2026-11-01", amount: -65, label: "Correction du solde", status: "manuel", source: "saisie", correction: true });
     expect(cash(s).at(-1)!.excluded).toBeUndefined();
     expect(cash(s).at(-1)!.transferId).toBeUndefined();
     expect(accountBalance(s, "liquide", "2026-11-01")).toBe(35);
-    expect(spendByCategory(s, "2026-11").find((x) => x.categoryId === "autres-out")?.amount).toBe(65);
+    expect(spendByCategory(s, "2026-11")).toEqual([]);
+    expect(buildRows(s).some((r) => r.txn.label === "Correction du solde")).toBe(false);
   });
-  it("plus d'argent que prévu : rentrée « autres-in » ; même montant : rien ne change", () => {
+  it("plus d'argent que prévu : correction positive ; même montant : rien ne change", () => {
     let s = addAccount(emptyState(), "Tirelire", "epargne");
     s = correctBalance(s, "tirelire", 40.5, "2026-11-01");
     expect(s.txns).toHaveLength(1);
-    expect(s.txns[0]).toMatchObject({ amount: 40.5, categoryId: "autres-in" });
+    expect(s.txns[0]).toMatchObject({ amount: 40.5, correction: true });
     expect(correctBalance(s, "tirelire", 40.5, "2026-11-01")).toBe(s);
     const zero = correctBalance(s, "tirelire", 0, "2026-11-01");
     expect(accountBalance(zero, "tirelire", "2026-11-01")).toBe(0);

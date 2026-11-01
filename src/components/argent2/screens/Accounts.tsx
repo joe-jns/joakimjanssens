@@ -216,12 +216,12 @@ function FixBalance({ acc, heading, onDone }: { acc: Account; heading?: boolean;
         </h3>
       )}
       <p class="ag-sub">
-        Dans l’appli : <span class="num">{fmt(now)}</span>. Indique ce qu’il y a vraiment aujourd’hui : l’écart devient une
-        opération « Correction du solde » datée d’aujourd’hui, comptée dans tes dépenses ou tes rentrées.
+        Dans l’appli : <span class="num">{fmt(now)}</span>. Indique ce qu’il y a vraiment aujourd’hui : le solde est ajusté,
+        sans opération dans Activité ni dans tes dépenses ou tes rentrées.
       </p>
       <MoneyField label="Montant réel aujourd’hui" value={value} onChange={setValue} required />
       <p class="ag-sub" aria-live="polite">
-        {!typed ? "" : diff ? `Écart : ${diff > 0 ? "+" : ""}${fmt(diff)} (${diff < 0 ? "dépense « Autres »" : "rentrée « Autres rentrées »"})` : "Rien à corriger : c’est déjà le bon montant."}
+        {!typed ? "" : diff ? `Écart : ${diff > 0 ? "+" : ""}${fmt(diff)}` : "Rien à corriger : c’est déjà le bon montant."}
       </p>
       <button type="submit" class="ag-btn-full press" disabled={!diff}>
         Corriger le solde
