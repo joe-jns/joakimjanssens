@@ -65,6 +65,22 @@ describe("materializeSchedule : since et dismissed", () => {
 });
 
 describe("upcoming", () => {
+  it("une opération saisie à l'avance est un paiement prévu une fois ; pas un virement, une correction ou une ligne non comptée", () => {
+    const base = { accountId: "cbc", label: "Cadeaux", status: "manuel" as const, source: "saisie" as const };
+    const s: State = {
+      ...emptyState(),
+      txns: [
+        { ...base, id: "a", date: "2026-12-24", amount: -700 },
+        { ...base, id: "b", date: "2026-12-20", amount: -50, transferId: "v" },
+        { ...base, id: "c", date: "2026-12-21", amount: -5, correction: true },
+        { ...base, id: "d", date: "2026-12-22", amount: -9, excluded: true },
+        { ...base, id: "e", date: "2026-12-10", amount: -3 },
+      ],
+    };
+    const u = upcoming(s, "2026-12-10", 15);
+    expect(u).toEqual([{ date: "2026-12-24", label: "Cadeaux", amount: -700, kind: "ponctuel", refId: "a" }]);
+    expect(upcoming(s, "2026-11-01", 15)).toEqual([]);
+  });
   it("30 jours : fixe du 5 et paie du jeudi", () => {
     const s: State = {
       ...emptyState(),

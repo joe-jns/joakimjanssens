@@ -6,7 +6,7 @@ export type Upcoming = {
   date: string;
   label: string;
   amount: number;
-  kind: "fixe" | "dette" | "paie";
+  kind: "fixe" | "dette" | "paie" | "ponctuel";
   refId?: string;
 };
 
@@ -100,5 +100,10 @@ export function upcoming(state: State, today: string, days: number): Upcoming[] 
     if (p > today && p <= to) pay.set(p, round2((pay.get(p) ?? 0) + t.amount));
   }
   for (const [date, amount] of pay) out.push({ date, label: "Paie", amount, kind: "paie" });
+  // Opération saisie à l'avance (cadeaux le 24 décembre…) : un paiement prévu une seule fois.
+  for (const t of state.txns) {
+    if (t.source !== "saisie" || t.transferId || t.excluded || t.correction || t.date <= today || t.date > to) continue;
+    out.push({ date: t.date, label: t.label, amount: t.amount, kind: "ponctuel", refId: t.id });
+  }
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
