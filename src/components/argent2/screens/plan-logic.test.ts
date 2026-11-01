@@ -91,6 +91,56 @@ describe("paiements fixes", () => {
   });
 });
 
+describe("modifier un fixe ou une dette : l'échéance du jour qui n'est plus prévue disparaît", () => {
+  const ofRef = (s: State, id: string) => s.txns.filter((t) => t.refId === id).map((t) => [t.date, t.amount, t.status]);
+
+  it("fixe créé pour aujourd'hui puis repoussé au 15 : plus rien aujourd'hui, rien de recréé", () => {
+    let s = materializeSchedule(saveRecurring(emptyState(), { label: "Abo", amount: -20, every: "month", first: TODAY, accountId: "cbc" }, TODAY), TODAY);
+    const id = s.recurring[0].id;
+    expect(ofRef(s, id)).toEqual([[TODAY, -20, "prevu"]]);
+    s = saveRecurring(s, { id, label: "Abo", amount: -20, every: "month", first: "2026-11-15", accountId: "cbc" }, TODAY);
+    expect(ofRef(s, id)).toEqual([]);
+    expect(s.dismissed).toEqual([]);
+    expect(materializeSchedule(s, TODAY).txns).toHaveLength(0);
+    expect(ofRef(materializeSchedule(s, "2026-12-15"), id)).toEqual([["2026-11-15", -20, "prevu"], ["2026-12-15", -20, "prevu"]]);
+  });
+  it("fixe : le passé, l'échéance du jour toujours prévue et une ligne de la banque restent", () => {
+    let s = saveRecurring(emptyState(), { label: "Abo", amount: -20, every: "month", first: "2026-10-01", accountId: "cbc" }, "2026-10-01");
+    s = materializeSchedule(s, TODAY);
+    const id = s.recurring[0].id;
+    s = saveRecurring(s, { id, label: "Abo", amount: -25, every: "month", first: "2026-10-01", accountId: "cbc" }, TODAY);
+    expect(ofRef(s, id)).toEqual([["2026-10-01", -20, "prevu"], [TODAY, -20, "prevu"]]);
+    s = { ...s, txns: s.txns.map((t) => (t.date === TODAY ? { ...t, status: "banque" as const, bankKey: "cbc:x" } : t)) };
+    s = saveRecurring(s, { id, label: "Abo", amount: -25, every: "month", first: "2026-11-20", accountId: "cbc" }, TODAY);
+    expect(ofRef(s, id)).toEqual([["2026-10-01", -20, "prevu"], [TODAY, -20, "banque"]]);
+  });
+  it("dette dont la 1re échéance était aujourd'hui, repoussée au 15 : pas de −300 aujourd'hui, reste entier", () => {
+    let s = saveDebt(emptyState(), { label: "Prêt", left: 900, paid: 0, amount: 300, every: "month", first: TODAY, accountId: "cbc" }, TODAY);
+    s = materializeSchedule(s, TODAY);
+    const id = s.debts[0].id;
+    expect(ofRef(s, id)).toEqual([[TODAY, -300, "prevu"]]);
+    expect(accountBalance(s, "cbc", TODAY)).toBe(-300);
+    const d = debtDraft(s.debts[0], TODAY);
+    expect(d).toMatchObject({ left: 600, paid: 300, first: "2026-12-01" });
+    s = saveDebt(s, { ...d, first: "2026-11-15" }, TODAY);
+    expect(ofRef(s, id)).toEqual([]);
+    expect(accountBalance(s, "cbc", TODAY)).toBe(0);
+    expect(s.debts[0]).toMatchObject({ first: "2026-11-15", total: 900 });
+    expect(s.debts[0].paid).toBeUndefined();
+    expect(debtInfo(s.debts[0], TODAY)).toMatchObject({ left: 900, repaid: 0, end: "2027-01-15" });
+    expect(materializeSchedule(s, TODAY).txns).toHaveLength(0);
+    expect(ofRef(materializeSchedule(s, "2026-11-15"), id)).toEqual([["2026-11-15", -300, "prevu"]]);
+  });
+  it("dette : une échéance du jour déjà reliée à la banque n'est jamais retirée", () => {
+    let s = materializeSchedule(saveDebt(emptyState(), { label: "Prêt", left: 900, paid: 0, amount: 300, every: "month", first: TODAY, accountId: "cbc" }, TODAY), TODAY);
+    const id = s.debts[0].id;
+    s = { ...s, txns: s.txns.map((t) => ({ ...t, status: "banque" as const, bankKey: "cbc:y" })) };
+    s = saveDebt(s, { ...debtDraft(s.debts[0], TODAY), first: "2026-11-15" }, TODAY);
+    expect(ofRef(s, id)).toEqual([[TODAY, -300, "banque"]]);
+    expect(s.debts[0]).toMatchObject({ total: 600, paid: 300 });
+  });
+});
+
 describe("dettes", () => {
   it("1200 € à 100 € par mois : 12 tranches, fin et « libre le » connus", () => {
     const i = debtInfo(debt(), TODAY);

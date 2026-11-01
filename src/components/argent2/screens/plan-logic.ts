@@ -8,6 +8,8 @@
 // - Modifier le montant, la fréquence, la date ou le reste d'une dette relance son échéancier depuis la prochaine
 //   échéance : reste et « déjà remboursé » sont ceux saisis, les tranches passées ne bougent pas. Si la date et la
 //   fréquence ne changent pas, la série garde son jour d'origine (voir saveDebt).
+// - Modifier un fixe ou une dette retire ses échéances « prévues » d'aujourd'hui (ou après) qui ne sont plus dans
+//   le nouvel échéancier ; une échéance déjà reliée à la banque ne bouge jamais.
 // - Changer les réglages de la paie recalcule les journées « prévues » (montant, compte, période) ; les journées
 //   remplacées par la vraie paie de la banque n'existent plus et ne reviennent pas (semaines payées). Le nom de
 //   l'employeur saisi après l'import suffit : la paie déjà importée est reconnue sans réimporter.
@@ -16,7 +18,7 @@ import { addDays, isWorkday, MONTHS_LONG, MONTHS_SHORT, nthDate, parse, DAYS_SHO
 import type { Account, Debt, Goal, Recurring, State, Work } from "../../../lib/argent/model";
 import { round2 } from "../../../lib/argent/money";
 import { applyKnownPayroll } from "../../../lib/argent/reconcile";
-import { debtLeft, debtSchedule } from "../../../lib/argent/schedule";
+import { debtLeft, debtSchedule, pruneSchedule } from "../../../lib/argent/schedule";
 import { skipDays, syncWorkdays, unskipDay } from "../../../lib/argent/workdays";
 
 export const EVERY: { id: Every; label: string; short: string }[] = [
@@ -112,7 +114,8 @@ export function saveRecurring(s: State, d: RecurringDraft, today: string): State
   if (!label || !amount || !d.first || !d.accountId) return s;
   const fields = { label, amount, every: d.every, first: d.first, accountId: d.accountId, categoryId: d.categoryId };
   if (!d.id) return { ...s, recurring: [...s.recurring, { id: crypto.randomUUID(), ...fields, since: today }] };
-  return { ...s, recurring: s.recurring.map((r): Recurring => (r.id === d.id ? { ...r, ...fields, since: later(r.since, today) } : r)) };
+  const next = { ...s, recurring: s.recurring.map((r): Recurring => (r.id === d.id ? { ...r, ...fields, since: later(r.since, today) } : r)) };
+  return pruneSchedule(next, "fixe", d.id, today).state;
 }
 
 /** Retire le fixe ; ses opérations déjà créées restent (historique), plus rien n'arrive ensuite. */
@@ -197,8 +200,16 @@ export function saveDebt(s: State, d: DebtDraft, today: string): State {
   const next: Debt = same
     ? { ...old, label, accountId: d.accountId }
     : { ...old, label, accountId: d.accountId, total, paid: paidOut || undefined, amount, every: d.every, first, since: later(old.since, today) };
+  const pruned = pruneSchedule({ ...s, debts: s.debts.map((x) => (x.id === d.id ? next : x)) }, "dette", d.id, today);
+  // Échéance du jour retirée (date repoussée) : le formulaire la comptait dans « déjà remboursé ». Si ces champs
+  // n'ont pas été touchés, elle revient dans le reste à rembourser.
+  const back = round2(pruned.removed.filter((t) => t.date <= today).reduce((a, t) => a - t.amount, 0));
+  if (back && was.left === left && was.paid === paid) {
+    next.total = round2(next.total + back);
+    next.paid = round2((next.paid ?? 0) - back) || undefined;
+  }
   if (next.paid === undefined) delete next.paid;
-  return { ...s, debts: s.debts.map((x) => (x.id === d.id ? next : x)) };
+  return { ...pruned.state, debts: pruned.state.debts.map((x) => (x.id === d.id ? next : x)) };
 }
 
 /**

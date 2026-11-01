@@ -61,6 +61,28 @@ export function materializeSchedule(state: State, today: string): State {
   return added.length ? { ...state, txns: [...state.txns, ...added] } : { ...state, txns: [...state.txns] };
 }
 
+/**
+ * Après la modification d'un fixe ou d'une dette : retire ses échéances « prévues » datées d'aujourd'hui ou après
+ * qui ne sont plus dans le nouvel échéancier (ex. date repoussée). Le passé et les lignes de la banque ne bougent
+ * pas. Rend aussi les échéances retirées. Rien à mettre dans `dismissed` : materializeSchedule ne crée que des
+ * dates de l'échéancier, l'ancienne date n'y est plus.
+ */
+export function pruneSchedule(state: State, source: "fixe" | "dette", refId: string, today: string): { state: State; removed: Txn[] } {
+  const stale = state.txns.filter((t) => t.source === source && t.refId === refId && t.status === "prevu" && t.date >= today);
+  if (!stale.length) return { state, removed: [] };
+  const to = stale.reduce((m, t) => (t.date > m ? t.date : m), today);
+  const r = source === "fixe" ? state.recurring.find((x) => x.id === refId) : undefined;
+  const d = source === "dette" ? state.debts.find((x) => x.id === refId) : undefined;
+  const since = r?.since ?? d?.since;
+  const dates = new Set(
+    (r ? recurringDates(r, "", to) : d ? debtSchedule(d, to).map((p) => p.date) : []).filter((x) => !since || x >= since),
+  );
+  const removed = stale.filter((t) => !dates.has(t.date));
+  if (!removed.length) return { state, removed };
+  const drop = new Set(removed);
+  return { state: { ...state, txns: state.txns.filter((t) => !drop.has(t)) }, removed };
+}
+
 // Ce qui arrive dans les `days` prochains jours (aujourd'hui exclu), trié par date.
 export function upcoming(state: State, today: string, days: number): Upcoming[] {
   const to = addDays(today, days);
