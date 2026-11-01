@@ -3,7 +3,7 @@ import { transfer } from "../../../lib/argent/balance";
 import { emptyState, type State, type Txn } from "../../../lib/argent/model";
 import { materializeSchedule } from "../../../lib/argent/schedule";
 import { syncWorkdays } from "../../../lib/argent/workdays";
-import { applyFilters, buildRows, canEdit, dayTitle, deleteTxn, editTransfer, editTxn, groupDays, matchesSearch, takeDays } from "./activity-logic";
+import { applyFilters, buildRows, canEdit, countExcluded, dayTitle, deleteTxn, editTransfer, editTxn, groupDays, isExcluded, matchesSearch, setExcluded, takeDays } from "./activity-logic";
 
 const tx = (p: Partial<Txn> & { id: string }): Txn => ({
   accountId: "cbc",
@@ -211,5 +211,27 @@ describe("ligne de la banque : date et compte verrouillés", () => {
     const s = seed();
     expect(canEdit(s, s.txns.find((t) => t.id === "b")!)).toEqual({ amount: true, date: true, account: true, category: true });
     expect(canEdit(s, tx({ id: "j", source: "journee", status: "prevu" })).date).toBe(false);
+  });
+});
+
+describe("opérations non comptées", () => {
+  const withExcluded = () => {
+    const s = seed();
+    return setExcluded(setExcluded(s, "b", true), s.txns.find((t) => t.transferId)!.id, true);
+  };
+  it("cachées par défaut, montrées sur demande, et comptées", () => {
+    const rows = buildRows(withExcluded());
+    expect(countExcluded(rows)).toBe(2);
+    expect(applyFilters(rows, { kind: "tout", cats: null, q: "" }).some(isExcluded)).toBe(false);
+    expect(applyFilters(rows, { kind: "tout", cats: null, q: "", excluded: true })).toHaveLength(rows.length);
+  });
+  it("la recherche les trouve quand elles sont montrées", () => {
+    const rows = buildRows(withExcluded());
+    expect(applyFilters(rows, { kind: "tout", cats: null, q: "delhaize" })).toHaveLength(0);
+    expect(applyFilters(rows, { kind: "tout", cats: null, q: "delhaize", excluded: true }).map((r) => r.key)).toEqual(["b"]);
+  });
+  it("le net du jour les ignore", () => {
+    const rows = applyFilters(buildRows(withExcluded()), { kind: "tout", cats: null, q: "", excluded: true });
+    expect(groupDays(rows).find((x) => x.day === "2026-10-21")!.net).toBe(42.1);
   });
 });

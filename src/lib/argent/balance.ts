@@ -8,6 +8,12 @@ export const effectiveDate = (t: Txn): string => (t.source === "journee" ? payda
 
 // Ligne prévue que l'ancre de son compte couvre déjà (le vrai solde de l'extrait la remplace) :
 // ni dans le solde, ni dans les dépenses ou le graphe.
+// Opération « non comptée » : jamais dans les statistiques (dépenses, rentrées, graphes).
+export const counted = (t: Txn): boolean => !t.excluded;
+// Dans le solde : tout sauf une saisie ou une ligne prévue non comptée (comme si elle n'existait pas).
+// Une ligne de la banque non comptée y reste : c'est de l'argent réel, déjà dans l'ancre.
+export const inBalance = (t: Txn): boolean => !t.excluded || t.status === "banque";
+
 export function coveredByAnchor(state: State, t: Txn): boolean {
   if (t.status !== "prevu") return false;
   const from = state.accounts.find((a) => a.id === t.accountId)?.anchor?.date;
@@ -19,7 +25,7 @@ export function accountBalance(state: State, accountId: string, at: string): num
   const from = acc?.anchor?.date;
   let sum = acc?.anchor?.balance ?? 0;
   for (const t of state.txns) {
-    if (t.accountId !== accountId) continue;
+    if (t.accountId !== accountId || !inBalance(t)) continue;
     const e = effectiveDate(t);
     if (e <= at && (!from || e > from)) sum += t.amount;
   }
@@ -34,7 +40,7 @@ export function pendingPay(state: State, at: string): { amount: number; next?: s
   let amount = 0;
   let next: string | undefined;
   for (const t of state.txns) {
-    if (t.source !== "journee") continue;
+    if (t.source !== "journee" || !inBalance(t)) continue;
     const p = payday(t.date);
     if (p <= at) continue;
     amount += t.amount;
@@ -46,7 +52,7 @@ export function pendingPay(state: State, at: string): { amount: number; next?: s
 export function spendByCategory(state: State, month: string): { categoryId: string; amount: number; share: number }[] {
   const by = new Map<string, number>();
   for (const t of state.txns) {
-    if (t.transferId || t.amount >= 0 || !t.date.startsWith(month) || coveredByAnchor(state, t)) continue;
+    if (t.transferId || !counted(t) || t.amount >= 0 || !t.date.startsWith(month) || coveredByAnchor(state, t)) continue;
     const c = t.categoryId ?? "autres-out";
     by.set(c, (by.get(c) ?? 0) - t.amount);
   }
@@ -100,7 +106,7 @@ export function forecast(state: State, target: string, now: Date): { total: numb
     if (p > target) later += amount;
     else if (p > today) pay.set(p, (pay.get(p) ?? 0) + amount);
   };
-  for (const t of state.txns) if (t.source === "journee") addPay(t.date, t.amount);
+  for (const t of state.txns) if (t.source === "journee" && inBalance(t)) addPay(t.date, t.amount);
   for (const d of futureWorkdays(state, today, target, now)) addPay(d, state.work.dayAmount);
   if (pay.size) {
     const dates = [...pay.keys()].sort();
@@ -112,7 +118,7 @@ export function forecast(state: State, target: string, now: Date): { total: numb
   }
 
   const inWindow = (d: string) => d > today && d <= target;
-  const prevus = state.txns.filter((t) => t.source !== "journee" && inWindow(t.date)).sort((a, b) => a.date.localeCompare(b.date));
+  const prevus = state.txns.filter((t) => t.source !== "journee" && inBalance(t) && inWindow(t.date)).sort((a, b) => a.date.localeCompare(b.date));
   if (prevus.length) rows.push({ label: "Prévus", amount: round2(prevus.reduce((s, t) => s + t.amount, 0)), details: prevus.map((t) => `${t.date} ${t.label} : ${fmt(t.amount)}`) });
 
   const seen = new Set([...state.txns.filter((t) => t.refId).map((t) => `${t.refId}|${t.date}`), ...(state.dismissed ?? [])]);

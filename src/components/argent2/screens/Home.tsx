@@ -1,7 +1,7 @@
 // Accueil (design validé du 2026-10-31) : graphe du solde, trois chiffres, paie de la semaine,
 // à payer bientôt, dépenses du mois (barre segmentée), historique. Premier lancement : carte d'accueil.
 import { useState } from "preact/hooks";
-import { accountBalance, effectiveDate, totalBalance } from "../../../lib/argent/balance";
+import { accountBalance, counted, effectiveDate, totalBalance } from "../../../lib/argent/balance";
 import { addDays, DAYS_LONG, DAYS_SHORT as DAYS, isWorkday, iso, mondayOf, MONTHS_LONG, MONTHS_SHORT, parse, payday } from "../../../lib/argent/dates";
 import { readableOn } from "../../../lib/argent/color";
 import type { State, Txn } from "../../../lib/argent/model";
@@ -121,13 +121,13 @@ function BalanceChart({ s, today, period, setPeriod, buckets }: { s: State; toda
 }
 
 /* ---------- Trois chiffres ---------- */
-/** Total des comptes d'épargne ce soir, et ce qui y est entré (ou sorti) entre `start` et `end`. */
+/** Total des comptes d'épargne ce soir, et ce qui y est entré (ou sorti) entre `start` et `end` (opérations non comptées exclues). */
 export function savings(s: State, today: string, start: string, end: string): { saved: number; delta: number } {
   const list = s.accounts.filter((a) => a.kind === "epargne");
   const saved = round2(list.reduce((t, a) => t + accountBalance(s, a.id, today), 0));
   const ids = new Set(list.map((a) => a.id));
   const delta = round2(
-    s.txns.filter((t) => ids.has(t.accountId) && effectiveDate(t) >= start && effectiveDate(t) <= end && effectiveDate(t) <= today).reduce((x, t) => x + t.amount, 0),
+    s.txns.filter((t) => ids.has(t.accountId) && counted(t) && effectiveDate(t) >= start && effectiveDate(t) <= end && effectiveDate(t) <= today).reduce((x, t) => x + t.amount, 0),
   );
   return { saved, delta };
 }
@@ -194,7 +194,8 @@ export function WeekPay({ s, today, now }: { s: State; today: string; now: Date 
   const paid = work.paidWeeks.includes(monday);
   const skipped = new Set(work.skipped);
   const byDay = new Map<string, number>();
-  for (const t of s.txns) if (t.source === "journee") byDay.set(t.date, (byDay.get(t.date) ?? 0) + t.amount);
+  // Une journée non comptée vaut 0 (elle existe toujours : elle n'est pas reprévue).
+  for (const t of s.txns) if (t.source === "journee") byDay.set(t.date, (byDay.get(t.date) ?? 0) + (t.excluded ? 0 : t.amount));
   const createdToday = now.getHours() >= 20;
   const days = [0, 1, 2, 3, 4].map((i) => {
     const d = addDays(monday, i);

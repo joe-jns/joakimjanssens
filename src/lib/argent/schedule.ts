@@ -73,7 +73,7 @@ export function upcoming(state: State, today: string, days: number): Upcoming[] 
   }
   const pay = new Map<string, number>();
   for (const t of state.txns) {
-    if (t.source !== "journee" || t.status !== "prevu") continue;
+    if (t.source !== "journee" || t.status !== "prevu" || t.excluded) continue;
     const p = payday(t.date);
     if (p > today && p <= to) pay.set(p, round2((pay.get(p) ?? 0) + t.amount));
   }

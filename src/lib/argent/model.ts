@@ -27,6 +27,8 @@ export type Txn = {
   bankKey?: string;
   transferId?: string;
   note?: string;
+  // « Ne pas compter » : jamais dans les statistiques ; hors du solde aussi, sauf une ligne de la banque.
+  excluded?: boolean;
 };
 export type Recurring = {
   id: string;

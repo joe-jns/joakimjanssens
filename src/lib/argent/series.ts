@@ -1,7 +1,7 @@
 // Séries par période pour le graphe de l'accueil : rentrées au-dessus de zéro, dépenses en dessous.
 // Les virements entre comptes ne comptent pas ; une journée de travail compte le jour de sa paie ; une ligne
-// prévue que l'ancre de son compte couvre déjà ne compte plus.
-import { coveredByAnchor, effectiveDate, spendByCategory } from "./balance";
+// prévue que l'ancre de son compte couvre déjà ne compte plus, une opération « non comptée » non plus.
+import { counted, coveredByAnchor, effectiveDate, spendByCategory } from "./balance";
 import { addDays, iso, mondayOf, MONTHS_SHORT, parse } from "./dates";
 import type { State } from "./model";
 import { round2 } from "./money";
@@ -34,7 +34,7 @@ export function periodSeries(state: State, period: Period, now: Date, count = 6)
   const first = buckets[0].start;
   const last = buckets[buckets.length - 1].end;
   for (const t of state.txns) {
-    if (t.transferId || coveredByAnchor(state, t)) continue;
+    if (t.transferId || !counted(t) || coveredByAnchor(state, t)) continue;
     const d = effectiveDate(t);
     if (d < first || d > last) continue;
     const b = buckets.find((x) => d >= x.start && d <= x.end);

@@ -9,10 +9,13 @@ import { skipDays } from "../../../lib/argent/workdays";
 /** Une ligne de la liste. Un virement entre mes comptes : `txn` = la sortie, `pair` = l'entrée. */
 export type Row = { key: string; date: string; txn: Txn; pair?: Txn; /** Texte de recherche, déjà replié (sans accents, minuscules). */ text: string };
 export type Kind = "tout" | "depenses" | "rentrees" | "fixes";
-export type Filters = { kind: Kind; cats: string[] | null; q: string };
+export type Filters = { kind: Kind; cats: string[] | null; q: string; /** Montrer aussi les opérations non comptées. */ excluded?: boolean };
 export type Day = { day: string; net: number; rows: Row[] };
 
 export const isTransfer = (r: Row): boolean => !!r.pair;
+/** Ligne « non comptée » (un virement l'est par ses deux moitiés à la fois). */
+export const isExcluded = (r: Row): boolean => !!r.txn.excluded || !!r.pair?.excluded;
+export const countExcluded = (rows: Row[]): number => rows.reduce((n, r) => n + (isExcluded(r) ? 1 : 0), 0);
 /** Catégorie d'une opération ; sans catégorie : « Autres » du même sens (comme la barre des dépenses). */
 export const catOf = (t: Txn): string => t.categoryId ?? (t.amount < 0 ? "autres-out" : "autres-in");
 
@@ -69,16 +72,18 @@ export function matchesFilters(r: Row, f: Pick<Filters, "kind" | "cats">): boole
   return true;
 }
 
-export const applyFilters = (rows: Row[], f: Filters): Row[] => rows.filter((r) => matchesFilters(r, f) && matchesSearch(r, f.q));
+/** Par défaut, les opérations non comptées sont cachées. */
+export const applyFilters = (rows: Row[], f: Filters): Row[] =>
+  rows.filter((r) => (f.excluded || !isExcluded(r)) && matchesFilters(r, f) && matchesSearch(r, f.q));
 
-/** Regroupe par jour (dans l'ordre reçu), avec le net du jour ; un virement entre mes comptes compte 0. */
+/** Regroupe par jour (dans l'ordre reçu), avec le net du jour ; un virement entre mes comptes et une opération non comptée comptent 0. */
 export function groupDays(rows: Row[]): Day[] {
   const days: Day[] = [];
   for (const r of rows) {
     let d = days[days.length - 1];
     if (!d || d.day !== r.date) days.push((d = { day: r.date, net: 0, rows: [] }));
     d.rows.push(r);
-    if (!r.pair) d.net = round2(d.net + r.txn.amount);
+    if (!r.pair && !isExcluded(r)) d.net = round2(d.net + r.txn.amount);
   }
   return days;
 }
@@ -133,6 +138,26 @@ export function deleteTxn(s: State, id: string): State {
   if (t.source === "journee") return skipDays(s, [t.date]);
   if (t.transferId) return { ...s, txns: s.txns.filter((x) => x.transferId !== t.transferId) };
   return { ...s, txns: s.txns.filter((x) => x.id !== id), dismissed: dismiss(s, t) };
+}
+
+/**
+ * « Ne pas compter » (ou compter à nouveau) une opération ; une moitié de virement emporte l'autre.
+ * L'opération reste là (une journée ou une échéance n'est donc pas recréée).
+ */
+export function setExcluded(s: State, id: string, on: boolean): State {
+  const t = s.txns.find((x) => x.id === id);
+  if (!t) return s;
+  const hit = (x: Txn) => x.id === id || (!!t.transferId && x.transferId === t.transferId);
+  return {
+    ...s,
+    txns: s.txns.map((x) => {
+      if (!hit(x)) return x;
+      const y: Txn = { ...x };
+      if (on) y.excluded = true;
+      else delete y.excluded;
+      return y;
+    }),
+  };
 }
 
 export type Patch = { amount?: number; categoryId?: string; accountId?: string; date?: string; note?: string };
