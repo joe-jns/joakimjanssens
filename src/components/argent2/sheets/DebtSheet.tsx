@@ -56,7 +56,7 @@ export function DebtSheet({ id, today, onDone }: { id?: string; today: string; o
       <EveryPicker value={every} onChange={setEvery} />
       <div class="ag-row2 ag-row2-even">
         <DateField label="Prochaine échéance" value={first} onChange={setFirst} required min={rule.min} />
-        <MoneyField label="Déjà remboursé" value={paid} onChange={setPaid} hint="Facultatif" />
+        <MoneyField label="Déjà remboursé" value={paid} onChange={setPaid} hint="Ce que tu as déjà payé avant aujourd’hui (facultatif)" />
       </div>
       <AccountPicker label="Payée depuis" value={accountId} onChange={setAccountId} />
       <p class="ag-plan-preview" aria-live="polite">

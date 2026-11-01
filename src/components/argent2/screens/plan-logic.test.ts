@@ -141,7 +141,7 @@ describe("dettes", () => {
     expect(debtDateRule("2026-11-05", "2026-11-05", TODAY, false)).toEqual({ first: "2026-11-05" });
     expect(debtDateRule("2026-11-05", "2026-10-20", TODAY, false)).toEqual({ min: TODAY, first: TODAY });
     expect(debtDateRule("2026-11-05", "2026-12-01", TODAY, false)).toEqual({ min: TODAY, first: "2026-12-01" });
-    expect(debtDateRule(undefined, "2026-10-20", TODAY, false)).toEqual({ first: "2026-10-20" });
+    expect(debtDateRule(undefined, "2026-10-20", TODAY, false)).toEqual({ min: TODAY, first: TODAY });
   });
   it("renommer seulement ne relance rien ; supprimer garde les tranches passées", () => {
     let s: State = materializeSchedule({ ...emptyState(), debts: [debt({ first: "2026-10-05" })] }, TODAY);
