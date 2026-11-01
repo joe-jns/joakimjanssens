@@ -30,8 +30,17 @@ $in = json_decode($body, true);
 if (!is_array($in) || !is_string($in['data'] ?? null) || !is_int($in['v'] ?? null) || !is_int($in['base'] ?? null)) {
     fail(400, 'body');
 }
-// Pas plus de quelques espaces de synchro : personne ne peut remplir le disque.
-if (!is_file($file) && count(glob("$dir/*.json")) >= 10) fail(507, 'full');
+if (!is_file($file)) {
+    // Rien ici alors que l'appareil croit à une version : on le dit (409, version 0) sans créer de fichier
+    // vide ; le fichier n'est créé qu'au moment d'écrire.
+    if ($in['base'] !== 0) {
+        http_response_code(409);
+        echo '{"v":0}';
+        exit;
+    }
+    // Pas plus de quelques espaces de synchro : personne ne peut remplir le disque.
+    if (count(glob("$dir/*.json")) >= 10) fail(507, 'full');
+}
 
 $fp = fopen($file, 'c+');
 if (!$fp || !flock($fp, LOCK_EX)) fail(500, 'lock');
