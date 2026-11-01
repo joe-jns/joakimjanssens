@@ -254,9 +254,11 @@ export function TxnDetail({ id, onDone }: { id: string; onDone: () => void }) {
         <p id="ag-exclude-hint" class="ag-sub ag-hint" aria-live="polite">
           {!t.excluded
             ? "Elle sera cachée de l’activité et sortie de tes statistiques."
-            : bank
-              ? "Ligne de la banque : elle reste dans le solde, mais n’est plus comptée dans tes dépenses et rentrées."
-              : `Elle n’est plus comptée, ni dans le solde ni dans tes dépenses et rentrées${isTransfer ? " (les deux côtés du virement)" : ""}.`}
+            : isTransfer
+              ? "Virement : il reste dans les soldes ; les deux côtés sont marqués non comptés."
+              : bank
+                ? "Ligne de la banque : elle reste dans le solde, mais n’est plus comptée dans tes dépenses et rentrées."
+                : "Elle n’est plus comptée, ni dans le solde ni dans tes dépenses et rentrées."}
         </p>
       </div>
 

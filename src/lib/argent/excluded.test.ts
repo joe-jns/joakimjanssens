@@ -80,8 +80,21 @@ describe("setExcluded", () => {
     const s = setExcluded(s0, s0.txns[1].id, true);
     expect(s.txns.every((t) => t.excluded)).toBe(true);
     expect(totalBalance(s, "2026-11-30")).toBe(before);
-    expect(accountBalance(s, "revolut-epargne", "2026-11-30")).toBe(0);
+    expect(accountBalance(s, "revolut-epargne", "2026-11-30")).toBe(40);
     expect(setExcluded(s, s.txns[0].id, false).txns.some((t) => t.excluded)).toBe(false);
+  });
+  it("virement moitié banque + moitié saisie : non compté, aucun solde ne bouge", () => {
+    const tid = "t1";
+    const s0 = base([
+      tx({ id: "out", amount: -60, status: "banque", source: "import", bankKey: "k", transferId: tid }),
+      tx({ id: "in", accountId: "liquide", amount: 60, transferId: tid }),
+    ]);
+    const at = "2026-11-30";
+    const before = [totalBalance(s0, at), accountBalance(s0, "cbc", at), accountBalance(s0, "liquide", at)];
+    const s = setExcluded(s0, "in", true);
+    expect(s.txns.every((t) => t.excluded)).toBe(true);
+    expect([totalBalance(s, at), accountBalance(s, "cbc", at), accountBalance(s, "liquide", at)]).toEqual(before);
+    expect(before).toEqual([1000, 940, 60]);
   });
   it("une journée non comptée n'est pas recréée par syncWorkdays", () => {
     let s: State = { ...emptyState(), work: { ...emptyState().work, start: "2026-11-02" } };
