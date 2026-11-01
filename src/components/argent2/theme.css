@@ -1189,6 +1189,13 @@ html:has(.ag) body {
   white-space: nowrap;
   pointer-events: none;
 }
+.ag-dash-detail {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-align: right;
+}
 .ag-dash-bubble-title {
   color: var(--ag-muted);
   font-weight: 400;

@@ -50,8 +50,6 @@ function PeriodChart({ s, today, period, setPeriod, buckets }: { s: State; today
   const zero = y(0);
   const tall = (v: number) => (v > 0 ? Math.max(3, (v / range) * H) : 0);
   const b = buckets[shown];
-  const bubbleTop = Math.max(0, Math.min(H - 64, zero - tall(b.income)));
-  const right = shown >= n / 2; // la bulle se place à gauche des barres de droite, à droite des autres
 
   const onKey = (e: KeyboardEvent, i: number) => {
     const to = e.key === "ArrowLeft" ? i - 1 : e.key === "ArrowRight" ? i + 1 : e.key === "Home" ? 0 : e.key === "End" ? n - 1 : -1;
@@ -94,6 +92,10 @@ function PeriodChart({ s, today, period, setPeriod, buckets }: { s: State; today
               <i style={{ background: "var(--ag-out)" }} /> Dépenses
             </span>
           </p>
+          {/* Détail de la période survolée ou choisie : dans l'en-tête, pour ne jamais cacher une barre. */}
+          <p class="ag-dash-detail num" aria-live="polite">
+            <span class="ag-dash-bubble-title">{names(b, period).long}</span> <span>{signed(b.income)}</span> · <span>{minus(b.spending)}</span>
+          </p>
         </div>
       </div>
       <div class="ag-dash-plot">
@@ -127,19 +129,6 @@ function PeriodChart({ s, today, period, setPeriod, buckets }: { s: State; today
                 <span class="ag-bar ag-bar-out" style={{ top: `${zero + 2}px`, height: `${tall(x.spending)}px` }} />
               </button>
             ))}
-            <div
-              class="ag-dash-bubble num"
-              aria-hidden="true"
-              style={{
-                top: `${bubbleTop}px`,
-                left: right ? `calc(${(shown / n) * 100}% - 4px)` : `calc(${((shown + 1) / n) * 100}% + 4px)`,
-                transform: right ? "translateX(-100%)" : undefined,
-              }}
-            >
-              <span class="ag-dash-bubble-title">{names(b, period).long}</span>
-              <span>{signed(b.income)}</span>
-              <span>{minus(b.spending)}</span>
-            </div>
           </div>
           <div class="ag-bar-labels" aria-hidden="true">
             {buckets.map((x, i) => (
