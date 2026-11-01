@@ -1675,6 +1675,84 @@ html:has(.ag) body {
   background: var(--ag-rose-pale);
   color: var(--ag-rose-text);
 }
+/* Opération « non comptée » : grisée, et toujours le badge en texte. */
+.ag-badge-off {
+  background: var(--ag-line);
+  color: var(--ag-muted);
+}
+.ag-act-row.is-off .ag-txn-label,
+.ag-act-row.is-off .ag-txn-amount,
+.ag-act-row.is-off .ag-txn-icon {
+  color: var(--ag-muted) !important;
+}
+.ag-act-row.is-off .ag-txn-amount {
+  text-decoration: line-through;
+}
+.ag-act-off {
+  display: flex;
+}
+.ag-exclude {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ag-exclude .ag-hint {
+  margin: 0;
+}
+/* Interrupteur */
+.ag-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 4px;
+  text-align: left;
+  color: var(--ag-ink);
+  font-size: 14px;
+}
+.ag-act-off .ag-switch {
+  font-size: 13px;
+  color: var(--ag-muted);
+}
+.ag-switch-track {
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 24px;
+  border-radius: var(--ag-r-pill);
+  background: var(--ag-out-ghost);
+  transition: background 0.2s var(--ag-ease);
+}
+.ag-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--ag-r-pill);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  transition: transform 0.2s var(--ag-ease);
+}
+.ag-switch[aria-checked="true"] .ag-switch-track {
+  background: var(--ag-ink);
+}
+.ag-switch[aria-checked="true"] .ag-switch-thumb {
+  transform: translateX(16px);
+}
+.ag-switch:focus-visible {
+  outline: 2px solid var(--ag-rose-vif);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ag-switch-track,
+  .ag-switch-thumb {
+    transition: none;
+  }
+}
 .ag-act-empty {
   flex-direction: column;
   gap: 4px;

@@ -6,7 +6,7 @@ import { DAYS_LONG, MONTHS_LONG, parse } from "../../../lib/argent/dates";
 import type { State, Txn } from "../../../lib/argent/model";
 import { fmt, toAmount } from "../../../lib/argent/money";
 import { state, update } from "../../../lib/argent/store";
-import { canDelete, canEdit, deleteTxn, editTransfer, editTxn } from "../screens/activity-logic";
+import { canDelete, canEdit, deleteTxn, editTransfer, editTxn, setExcluded } from "../screens/activity-logic";
 import { Icon } from "../ui/Icon";
 import { Numpad } from "../ui/Numpad";
 import { AccountPicker } from "./AddSheet";
@@ -27,12 +27,32 @@ export function TxnBadges({ t }: { t: Txn }) {
   return null;
 }
 
-/** Version d'une opération (et de l'autre moitié d'un virement) : la clé du formulaire, qui repart à zéro si elle change ailleurs. */
+/** Interrupteur accessible (role="switch") : libellé à gauche, état lu par les lecteurs d'écran. */
+export function Switch({ label, on, onChange, describedBy }: { label: string; on: boolean; onChange: (v: boolean) => void; describedBy?: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-describedby={describedBy} class="ag-switch press" onClick={() => onChange(!on)}>
+      <span class="ag-switch-label">{label}</span>
+      <span class="ag-switch-track" aria-hidden="true">
+        <span class="ag-switch-thumb" />
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Version d'une opération (et de l'autre moitié d'un virement) : la clé du formulaire, qui repart à zéro si elle
+ * change ailleurs. « Non comptée » n'en fait pas partie : l'interrupteur agit tout de suite sans effacer la saisie en cours.
+ */
 export function txnVersion(s: State, id: string): string {
   const t = s.txns.find((x) => x.id === id);
   if (!t) return "absente";
   const pair = t.transferId ? s.txns.find((x) => x.transferId === t.transferId && x.id !== t.id) : undefined;
-  return JSON.stringify([t, pair ?? null]);
+  const strip = (x?: Txn) => {
+    if (!x) return null;
+    const { excluded: _e, ...rest } = x;
+    return rest;
+  };
+  return JSON.stringify([strip(t), strip(pair)]);
 }
 
 /**
@@ -139,6 +159,7 @@ export function TxnDetail({ id, onDone }: { id: string; onDone: () => void }) {
           </p>
           <span class="ag-badges">
             <TxnBadges t={t} />
+            {t.excluded && <span class="ag-badge ag-badge-off">non comptée</span>}
             {t.source === "journee" && <span class="ag-badge">journée</span>}
             {(t.source === "fixe" || t.source === "dette") && <span class="ag-badge">{t.source === "fixe" ? "fixe" : "dette"}</span>}
           </span>
@@ -227,6 +248,17 @@ export function TxnDetail({ id, onDone }: { id: string; onDone: () => void }) {
       ) : (
         !can.date && <p class="ag-sub ag-hint">Journée de travail : la date ne change pas. Supprime-la si tu n’as pas travaillé.</p>
       )}
+
+      <div class="ag-exclude">
+        <Switch label="Ne pas compter cette opération" on={!!t.excluded} onChange={(v) => update((x) => setExcluded(x, t.id, v))} describedBy="ag-exclude-hint" />
+        <p id="ag-exclude-hint" class="ag-sub ag-hint" aria-live="polite">
+          {!t.excluded
+            ? "Elle sera cachée de l’activité et sortie de tes statistiques."
+            : bank
+              ? "Ligne de la banque : elle reste dans le solde, mais n’est plus comptée dans tes dépenses et rentrées."
+              : `Elle n’est plus comptée, ni dans le solde ni dans tes dépenses et rentrées${isTransfer ? " (les deux côtés du virement)" : ""}.`}
+        </p>
+      </div>
 
       <button type="submit" class="ag-btn-full press" disabled={!ok}>
         Enregistrer

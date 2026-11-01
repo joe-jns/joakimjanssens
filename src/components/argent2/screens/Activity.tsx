@@ -6,10 +6,10 @@ import { fmt } from "../../../lib/argent/money";
 import type { State } from "../../../lib/argent/model";
 import { state } from "../../../lib/argent/store";
 import { categoryFilter, query, txnId } from "../nav";
-import { accName, TxnBadges, TxnDetail, txnIcon, txnVersion } from "../sheets/TxnSheet";
+import { accName, Switch, TxnBadges, TxnDetail, txnIcon, txnVersion } from "../sheets/TxnSheet";
 import { Icon } from "../ui/Icon";
 import { useWide } from "../ui/useWide";
-import { applyFilters, buildRows, dayTitle, groupDays, takeDays, type Kind, type Row } from "./activity-logic";
+import { applyFilters, buildRows, countExcluded, dayTitle, groupDays, isExcluded, takeDays, type Kind, type Row } from "./activity-logic";
 
 const KINDS: { id: Kind; label: string }[] = [
   { id: "tout", label: "Tout" },
@@ -27,11 +27,12 @@ function RowItem({ s, r, selected }: { s: State; r: Row; selected: boolean }) {
   const label = r.pair ? `Virement ${accName(s, t.accountId)} → ${accName(s, r.pair.accountId)}` : t.label;
   const sub = r.pair ? (t.note ?? "Entre mes comptes") : [accName(s, t.accountId), cat].filter(Boolean).join(" · ");
   const amount = r.pair ? fmt(Math.abs(t.amount)) : signed(t.amount);
+  const off = isExcluded(r);
   return (
     <li>
       <button
         type="button"
-        class="ag-act-row"
+        class={`ag-act-row${off ? " is-off" : ""}`}
         data-key={r.key}
         aria-current={selected ? "true" : undefined}
         onClick={() => (txnId.value = t.id)}
@@ -42,6 +43,7 @@ function RowItem({ s, r, selected }: { s: State; r: Row; selected: boolean }) {
         <span class="ag-txn-main">
           <span class="ag-txn-label">{label}</span>
           <span class="ag-txn-sub">
+            {off && <span class="ag-badge ag-badge-off">non comptée</span>}
             <TxnBadges t={t} />
             <span class="ag-txn-sub-text">{sub}</span>
           </span>
@@ -58,6 +60,7 @@ export function Activity({ now }: { now: Date }) {
   const wide = useWide();
   const [kind, setKind] = useState<Kind>("tout");
   const [limit, setLimit] = useState(STEP);
+  const [showOff, setShowOff] = useState(false);
   const cats = categoryFilter.value;
   const q = query.value;
   // La liste suit la recherche avec un court délai (frappe fluide sur quelques milliers de lignes).
@@ -77,10 +80,11 @@ export function Activity({ now }: { now: Date }) {
     },
     [],
   );
-  useEffect(() => setLimit(STEP), [kind, cats, dq]);
+  useEffect(() => setLimit(STEP), [kind, cats, dq, showOff]);
 
   const rows = useMemo(() => buildRows(s), [s.txns, s.accounts, s.categories]);
-  const shown = useMemo(() => applyFilters(rows, { kind, cats, q: dq }), [rows, kind, cats, dq]);
+  const shown = useMemo(() => applyFilters(rows, { kind, cats, q: dq, excluded: showOff }), [rows, kind, cats, dq, showOff]);
+  const offCount = useMemo(() => countExcluded(rows), [rows]);
   const days = useMemo(() => groupDays(shown), [shown]);
   const visible = takeDays(days, limit);
   const visibleCount = visible.reduce((n, d) => n + d.rows.length, 0);
@@ -152,6 +156,12 @@ export function Activity({ now }: { now: Date }) {
             </button>
           )}
         </div>
+
+        {(offCount > 0 || showOff) && (
+          <div class="ag-act-off">
+            <Switch label={`Afficher les opérations non comptées (${offCount})`} on={showOff} onChange={setShowOff} />
+          </div>
+        )}
 
         {visible.length ? (
           <>
