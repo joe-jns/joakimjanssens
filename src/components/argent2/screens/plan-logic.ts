@@ -218,7 +218,7 @@ export function saveDebt(s: State, d: DebtDraft, today: string): State {
  */
 export function debtDateRule(was: string | undefined, first: string, today: string, done: boolean): { min?: string; first: string } {
   // Nouvelle dette : la prochaine échéance ne peut pas être passée (sinon elle compterait comme déjà payée ;
-  // ce qui est déjà payé se met dans « Déjà remboursé »).
+  // ce qui est déjà payé se met dans « Déjà payé »).
   if (done || (was && first === was)) return { first };
   return { min: today, first: first < today ? today : first };
 }
