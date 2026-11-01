@@ -32,7 +32,10 @@ export function periodSeries(state: State, period: Period, now: Date, count = 6)
   const buckets: Bucket[] = [];
   for (let i = count - 1; i >= 0; i--) buckets.push({ ...periodRange(period, now, -i), income: 0, spending: 0 });
   const first = buckets[0].start;
-  const last = buckets[buckets.length - 1].end;
+  // Seulement ce qui a déjà eu lieu : une paie attendue jeudi prochain n'est pas encore « rentrée ».
+  const end = buckets[buckets.length - 1].end;
+  const today = iso(now);
+  const last = end < today ? end : today;
   for (const t of state.txns) {
     if (t.transferId || !counted(t) || coveredByAnchor(state, t)) continue;
     const d = effectiveDate(t);

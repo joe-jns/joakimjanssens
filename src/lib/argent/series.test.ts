@@ -36,7 +36,11 @@ describe("periodSeries", () => {
   });
   it("compte une journée le jour de sa paie (jeudi suivant)", () => {
     // Vendredi 9 octobre → payée jeudi 15 octobre : semaine du 12, pas celle du 5.
-    const s = periodSeries(withTxns([tx("2026-10-09", 100, { source: "journee", status: "prevu" })]), "semaine", now);
+    const t = withTxns([tx("2026-10-09", 100, { source: "journee", status: "prevu" })]);
+    // Avant le jeudi de paie : pas encore rentrée.
+    expect(periodSeries(t, "semaine", new Date(2026, 9, 14)).every((b) => b.income === 0)).toBe(true);
+    // Le jeudi 15 : comptée dans la semaine du 12, pas celle du 5.
+    const s = periodSeries(t, "semaine", new Date(2026, 9, 15, 12));
     expect(s[4].income).toBe(0);
     expect(s[5].income).toBe(100);
   });
@@ -62,17 +66,19 @@ describe("limites de période", () => {
     expect(s[4].spending).toBe(7);
   });
   it("semaine à cheval sur deux mois : un seul seau, libellé du lundi", () => {
-    const s = periodSeries(withTxns([tx("2026-10-31", -5), tx("2026-11-01", -6)]), "semaine", new Date(2026, 9, 30));
+    const s = periodSeries(withTxns([tx("2026-10-31", -5), tx("2026-11-01", -6)]), "semaine", new Date(2026, 10, 1, 12));
     expect(s[5]).toMatchObject({ label: "26/10", start: "2026-10-26", end: "2026-11-01", spending: 11 });
+    // Le vendredi 30, rien de ce qui est daté plus tard n'est encore compté.
+    expect(periodSeries(withTxns([tx("2026-10-31", -5)]), "semaine", new Date(2026, 9, 30))[5].spending).toBe(0);
   });
   it("passage d'année : semaine, mois et année d'avant", () => {
     const ny = new Date(2027, 0, 1, 10); // vendredi 1er janvier 2027
     expect(periodRange("semaine", ny)).toMatchObject({ start: "2026-12-28", end: "2027-01-03", label: "28/12" });
     expect(periodRange("semaine", ny, -1)).toMatchObject({ start: "2026-12-21", end: "2026-12-27" });
     expect(periodRange("mois", ny, -1)).toEqual({ start: "2026-12-01", end: "2026-12-31", label: "déc." });
-    const s = periodSeries(withTxns([tx("2026-12-31", 20), tx("2027-01-02", -4)]), "semaine", ny);
+    const s = periodSeries(withTxns([tx("2026-12-31", 20), tx("2027-01-02", -4)]), "semaine", new Date(2027, 0, 3, 12));
     expect(s[5]).toMatchObject({ income: 20, spending: 4 });
-    const m = periodSeries(withTxns([tx("2026-12-31", 20), tx("2027-01-02", -4)]), "mois", ny);
+    const m = periodSeries(withTxns([tx("2026-12-31", 20), tx("2027-01-02", -4)]), "mois", new Date(2027, 0, 3, 12));
     expect(m[4]).toMatchObject({ label: "déc.", income: 20 });
     expect(m[5]).toMatchObject({ label: "janv.", spending: 4 });
   });
